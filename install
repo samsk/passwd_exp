@@ -1,0 +1,98 @@
+#!/bin/sh
+# Simple install script for passwd_exp program...
+# ...I'm too lazy to make a good one, but not enough to play with colors ;-)
+#
+
+#defaults
+VERSION="0.4"
+INSTALL_PATH="/usr/local/sbin"
+RED=`echo -e "\033[1;31m"`
+BLUE=`echo -e "\033[1;34m"`
+GREEN=`echo -e "\033[1;32m"`
+END=`echo -e "\033[1;0m"`
+
+if [ "$1" = "-h" ] || [ "$2" = "-h" ] || [ "$3" = "-h" ] || [ "$1" = "--help" ] || [ "$2" = "--help" ] || [ "$3" = "--help" ];
+  then cat <<__EOF__
+  usage: ./install [install_path] [options]
+  [options]
+ 	-n do not run expiration check after installation
+	-h print this stuff
+  Default install_path is '${BLUE}${INSTALL_PATH}${END}'
+  -- Script will install this files:
+  ${RED}(perl script)${END}	passwd_exp	-> @install_path@/passwd_exp
+  ${RED}(config file)${END}	passwd_exp.conf	-> /etc/passwd_exp.conf
+  ${RED}( cron file )${END}	passwd_exp.cron	-> /etc/cron.daily/passwd_exp.cron
+
+  Install script by ${GREEN}Samuel Behan <behan@frida.fri.utc.sk>${END}
+__EOF__
+exit;
+fi
+
+if [ -n "$1" ] && [ "$1" != "-n" ];
+  then INSTALL_PATH="$1";
+fi
+
+echo -n "Install passwd_exp $VERSION program to '$INSTALL_PATH'(y/N)? "
+read ok
+if [ "$ok" != "y" ] && [ "$ok" != "Y" ];
+  then echo "${BLUE}Instalation canceled${END} ( try -h switch for help )"
+       exit;
+fi
+
+
+echo "Copying passwd_exp program files...."
+echo "-->${RED}(perl script)${END} passwd_exp      -> ${INSTALL_PATH}/passwd_exp"
+
+COPY=`cp -u "passwd_exp" "${INSTALL_PATH}/passwd_exp" 2>&1`
+if [ -n "$COPY" ];then echo "Error($?): $COPY"; exit;fi
+chown root.root "${INSTALL_PATH}/passwd_exp"
+chmod a+x "${INSTALL_PATH}/passwd_exp"
+
+echo "-->${RED}(config file)${END} passwd_exp.conf -> /etc/passwd_exp.conf"
+COPY=`cp -u "passwd_exp.conf" "/etc/passwd_exp.conf" 2>&1`
+if [ -n "$COPY" ];then echo "Error($?): $COPY"; exit;fi
+chown root.root "/etc/passwd_exp.conf"
+
+echo "-->${RED}( cron file )${END} passwd_exp.cron -> /etc/cron.daily/passwd_exp.cron"
+COPY=`cp -b "passwd_exp.cron" "/etc/cron.daily/passwd_exp.cron" 2>&1`
+if [ -n "$COPY" ];then echo "Error($?): $COPY";fi
+chown root.root "/etc/cron.daily/passwd_exp.cron"
+chmod a+x "/etc/cron.daily/passwd_exp.cron"
+
+if ! [ -e "/etc/cron.daily/passwd_exp.cron" ];
+  then echo "Warning: passwd_exp.cron file could not be installed. You have"
+       echo "         to setup automatical password expiration checking at"
+       echo "         your own"
+   exit;
+fi
+
+echo -n "Setting up configuration..."
+#stupit i need to prepare a string to be able to replace it :-(
+I_PATH=`echo "$INSTALL_PATH" | sed -e 's/\//\\\\\//g'`
+RETVAL=`ed -s /etc/cron.daily/passwd_exp.cron <<__EOF__ 2>&1
+,s/?PASSWD_EXP?/$I_PATH/
+w
+q
+__EOF__`
+
+
+if [ -n "$RETVAL" ] && [ "$INSTALL_PATH" != "/usr/local/sbin" ];
+  then echo "${RED}ERROR${END}"
+       echo "  Error: Can not setup file /etc/cron.daily/passwd_exp.cron"
+       echo "  Help : Edit the file and assign the right path to variable passwd_exp"
+       echo "         at the begining of the script"
+       exit;
+   else echo "${GREEN}DONE${END}";
+fi
+
+
+if [ "$1" = "-n" ] || [ "$2" = "-n" ] || [ "$1" = "--nocheck" ] || [ "$2" = "--nocheck" ];
+  then exit;
+fi
+
+echo -n "Running password_expiration check for the first time..."
+/etc/cron.daily/passwd_exp.cron no_db &>/dev/null
+echo "${GREEN}DONE${END}"
+
+##end of script
+

@@ -1,0 +1,180 @@
+#!/usr/bin/less
+
+################################################################################
+
+Program name	: passwd_exp
+Version		: 0.4
+Purpose		: Warn of password expiration via email
+		  Check acount expiration status
+License		: GNU GPL v2
+Author		: Samuel Behan <behan@frida.fri.utc.sk>
+Requirements	: perl5.003, shadow password database, mail program 
+		  (like mailx is)
+
+################################################################################
+
+
+ABOUT
+-----
+	This program warns of password/account expiration via email.
+  It extends (and replaces) similar function of login program, that prints 
+  such a messages, but many users does not login for a long (long) time and 
+  only download (or forward) their emails. Even some stupit 'login' programs 
+  (ie. ssh and openssh server) don't do such a checks at the login time.
+	As a addition, program can list users that account is expiring,
+  is expired but not inactive, is expired going to inactivate and 
+  is inactive (understood ???).
+
+
+INSTALATION
+-----------
+	All you need to do is to unpack the program and run the install
+  program:
+  
+  $ tar -xzf passwd_exp-xxx.tgz
+  $ ./install
+  
+  	Main program file is defaultly installed to '/usr/local/sbin' 
+  directory, but you can choose your own install directory by running 
+  install script with your install directory:
+  
+  $ ./install _path_to_your_install_dir_
+  
+  Installed files:
+	_install_path_/passwd_exp	- main perl script
+	/etc/passwd_exp.conf		- configuration file
+	/etc/cron.daily/passwd_exp.cron	- cron job file (run once a day)
+
+  If install script can not install cron job file, you have to somehow
+  run passwd_exp program once a day (or less, not more !) so that program
+  can do checks and send the mail messages.
+  If installation was succesfull, password expiration check is done for
+  the first time ( can be disabled by -n switch when running install
+  script )
+ 
+ 
+COMMAND LINE OPTIONS
+--------------------
+	-c file path to config file
+	-l	list 'expiring' users stats (admin mode)
+	-u user	check only this user
+	-i	ignore users 'no check' file (while sending mail)
+	-f	force check (if performing check more than once a day)
+	-v	verbose mode (only if sending mail)
+	-h	print help
+
+CONFIGURATION
+-------------
+	You can customize program behavior by editing configuration
+  file '/etc/passwd_exp.conf'.
+  This configuration settings are supported:
+	mail
+  	mailer
+	mail sender	Path to program that is used to send mail. This
+			program must accept recipient (optionaly subject) 
+			on the command line and must read the body of 
+			the mail form the command line (like mailx does).
+			Example:
+			  mailer = mail %recipient% -s '%subject%'
+			  or
+			  mailer = mail %recipient% -s 'This is mail subject'
+				
+			String '%recipient%' is replaced by the email
+			recipient and '%subject%' is replaced by the email
+			subject. Be sure it is absolute path, else program
+			will refuse to use it.
+	
+	banner
+	print banner	Print program version banner to each mail sended.
+			Set value to yes, no, ok, allow, enable or true
+			to enable.
+			
+	no warnings	List of users that should not recieve warning emails,
+			divided by gaps or commas
+			Example:
+			  no warnings = root postgres,informix
+			  
+	no check	If filename specified by this option exists in
+			user home dir, user will not be disturbed by
+			warning emails. To disable this set this option
+			no value or uncomment it (see -i program switch).
+			
+	warn date expired
+			Warn users that have hard set expiration date of
+			their account. Set value to yes, no, ok, allow, 
+			enable or true to enable. This is not enabled
+			by default.
+			
+	warning subject	
+			Subject of the email sended to the users that
+			password/account is expiring. Please don't
+			set it longer than 60 character.
+			There are various variables recognized in this
+			string (see VARIABLES section for more informations).
+			
+	warning body	Body of the email sended to users that password/
+			/account is expiring. Can have more lines.
+			There are various variables recognized in this
+			string (see VARIABLES section for more informations).
+
+	warn expired	Warn users it their password/account has already
+			expired but is not inactive (yet).Set value to yes, 
+			no, ok, allow, enable or true to enable this.
+			
+	expired subject
+			Subject of the email sended to the users that
+			password/account has expired but is not inactive 
+			(yet). Please don't set it longer than 60 character.
+			There are various variables recognized in this
+			string (see VARIABLES section for more informations).
+
+	warning body	Body of the email sended to the users that password/
+			account has expired but is not inactive (yet). 
+			Can have more lines.
+			There are various variables recognized in this
+			string (see VARIABLES section for more informations).
+
+
+	If you are a real perl 'expert' (at least M$ Widows certificate
+  required ;-) you can customize messages printed in the user list mode. 
+  Just edit variables $USER_EXPIRING, $USER_EXPIRED, $USER_INACTIVATING,
+  $USER_INACTIVE. Of course, you can use most of the variables and symbols 
+  listed in the VARIABLES section.
+  
+
+VARIABLES
+---------
+	In some directives you can use internal variables that will
+  be replaced by their real value, that is specific for each user.
+  Supported directives:
+  	warning subject, warning body, expired subject, expired body
+	+ messages printed in the list mode $USER_*.
+	
+  Recognized vars:
+    \n			= new line
+    \t			= tabulator
+    $varname		= variables as defined in the program enviroment
+    %user%		= recipient username
+    %recipient%		= recipient username
+    %user_name%		= recipient full name or username if not set
+    %expire_in%		= days account will expire/has been expired
+    %expire_date%	= date account will expire/has been expired
+    %inactive_in%	= days account will be inactived/has been inactived
+    %inactive_date%	= date account will be inactived/has been inactived
+    %home_dir%		= user home directory
+    %deny_check%	= filename defined by 'warning no check' directive
+    %date%		= current date ( day_of_week day_of_month name_of_month year)
+    %locale_date%	= curent date as defines your locale
+    %time%		= current time ( hour:minute:second )
+    %locale_time%	= current time as defines yours locale
+    %unix_time%		= seconds since Epoch ( Jan 1. 1970 ) - GNU extension
+    %host%		= current host ip (as `hostname` utility returns)
+    %hostname%		= current host ip (as `hostname -i` utility returns)
+    
+
+BUGS & TIPS
+-----------
+	Bugs and tips report to behan@frida.fri.utc.sk and I will
+  try to help you if I can ;-)
+
+
