@@ -1,0 +1,40 @@
+########
+#Makefile for passwd_exp script by Sam <behan@frida.fri.utc.sk>
+########
+
+#instaltaion path
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+sbindir		= @sbindir@
+sysconfdir	= @sysconfdir@
+statedir	= @sharedstatedir@
+crondir		= /etc/cron.daily
+#found binaries
+PERL		= @PERL@
+SENDMAIL	= @SENDMAIL@
+MAILX		= @MAILX@
+SED		= @SED@
+
+#files
+binfile		= passwd_exp
+conffile	= passwd_exp.conf
+cronfile	= passwd_exp.cron
+
+
+all: install
+
+install:
+	@echo "Instaling files..."
+	cp -f $(conffile) $(datadir)/$(conffile)
+	cp -f $(binfile) $(sbindir)/$(binfile)
+	@if test -e $(crondir); then cp -f $(cronfile) $(crondir)/$(cronfile); \
+        echo "cp -f $(cronfile) $(crondir)/$(cronfile)"; \
+   else echo "ERROR INSTALLING CRON FILE: see README file, section INSTALATION !!!" 1>&2; fi
+	@echo "All DONE"
+
+
+clean:
+	rm -f $(binfile) $(conffile) $(cronfile) Makefile
+
+mrproper: clean
+	rm -f config.*
