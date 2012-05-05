@@ -1,0 +1,39 @@
+#! /bin/sh
+# Quite simple sed-2-sed expresions transformation script
+# WARNING: might be very very buggy
+#
+
+
+#progs
+SED=`which sed`
+
+#arguments
+CONF=$1
+shift
+
+if test "${CONF}x" = "x";
+	then b=`basename $0`;
+	     echo "usage: $b trans-map-file [SED OPTIONS] files" >&2;
+	     exit 1;
+fi
+
+#transform simple var mapping to sed lang
+(
+
+${SED}	"${CONF}"						\
+	-e 's!:!@:!'						\
+	-e 's!#.*$!!'						\
+	-e '/^./ { s!^!s:@!g; s!$!:g!g; }'
+
+#test transformation correctness
+if test "$?" != "0";
+	then echo "ERROR: error occured while transforming sed rules !!!" >&2;
+	     exit 1;
+fi;
+) | (
+#post it to sed and transform input files
+	${SED} -f - $@
+	#cat
+)
+
+#EOF

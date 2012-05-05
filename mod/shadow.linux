@@ -1,0 +1,167 @@
+#! /usr/bin/perl
+# PROGRAM	: shadow.linux (passwd_exp 1.x helper)
+# PURPOSE	: create input list from linux shadow
+# AUTHOR	: Samuel Behan <samkob@gmail.com> (c) 2000-2006
+# HOMEPAGE	: http://devel.dob.sk/passwd_exp
+# LICENSE	: GNU GPL v2, NO WARRANTY VOID (see file LICENSE)
+################################################################################
+#requirements
+use POSIX	 qw(uname);
+#pragmas
+#use strict;
+use integer;
+use vars qw($VERSION $AUTHOR $AUTHOR_EMAIL $SCRIPT);
+
+#script info
+$AUTHOR		= 'Samuel Behan';
+$AUTHOR_EMAIL	= 'samkob@gmail.com';
+$VERSION	= '1.0.0';
+$SCRIPT		= 'shadow.linux';
+
+#config defaults
+my %CONFIG;
+$CONFIG{-shells_file}	= '/etc/shells';
+$CONFIG{"shadow"}	= '/etc/shadow';
+$CONFIG{"host"}		= ( uname() )[1];
+$CONFIG{"getent"}	= 0;
+ 
+##constants
+#shadow
+sub SH_NAME		{	0;	};
+sub SH_PASSWD		{	1;	};
+sub SH_LAST_CHANGE	{	2;	};
+sub SH_CHANGE_MIN	{	3;	};
+sub SH_CHANGE_MAX	{	4;	};
+sub SH_CHANGE_WARN	{	5;	};
+sub SH_INACTIVE_MAX	{	6;	};
+sub SH_EXPIRE_DATE	{	7;	};
+sub SH_RESERVED		{	8;	};
+#passwd
+sub PW_NAME		{	0;	};
+sub PW_PASSWD		{	1;	};
+sub PW_UID		{	2;	};
+sub PW_GID		{	3;	};
+sub PW_QUOTA		{	4;	};
+sub PW_COMMENT		{	5;	};
+sub PW_GCOS		{	6;	};
+sub PW_DIR		{	7;	};
+sub PW_SHELL		{	8;	};
+sub PW_EXPIRE		{	9;	};
+
+#print info
+sub cmd_print_info(;$)
+{	
+	print STDERR <<__EOT__
+usage: $SCRIPT [command] [options]
+      -- $SCRIPT (passwd_exp helper) $VERSION by $AUTHOR 
+[command]
+	info			print module info
+[options]
+	getent=BOOL		use getent to fetch shadow data
+	uid_min=INT		set minimum UID
+	uid_max=INT		set maximum UID
+	uid_regexp=EXPR		check UID against regexp
+	gid_min=INT		set minimum GID
+	gid_max=INT		set minimum GID
+	gid_regexp=EXPR		check GID against regexp
+	group_regexp=EXPR	check group name against regexp
+	host=HOST		set host name
+	shell=0/1		require valid shell (from '$CONFIG{-shells_file}')
+	shadow=FILE		set shadow file to use (default '$CONFIG{shadow}')
+__EOT__
+;
+	exit(defined($_[0]));
+}
+
+
+################
+# MAIN PROGRAM #
+################
+my ($cmd, $line, $linenum, @shdata, @pwdata, @pcdata);
+my (@SHELLS);
+
+#parse command line
+foreach $cmd (@ARGV)
+{
+	cmd_print_info() if($cmd eq '-info' || $cmd eq '--info' || $cmd eq '-h' ||
+				$cmd eq '-help' || $cmd eq '--help' || $file ne '');
+	cmd_print_info(1) if(substr($cmd, 0, 1) eq '-' || substr($cmd, 0, 2) eq '--');	
+	if($cmd =~ /^(\w+)=(.*)$/o)
+	{	$CONFIG{$1} = $2 if(defined($2) && $2 ne '');
+		next;	}
+	warn("$SCRIPT: unknown argument '$cmd'\n")
+}
+#check params
+die("$SCRIPT: missing host name (try passing host=HOST), exiting...\n")
+	if(!defined($CONFIG{"host"}) || $CONFIG{"host"} eq '');
+
+
+#open shadow file
+if(defined($CONFIG{"getent"}) && $CONFIG{"getent"})	#use getent
+{	die("$SCRIPT: failed get shadow database via `getent shadow` ($!)\n")
+		if(!open(SHADOW, "getent shadow|"));	}
+else							#use direct file access
+{	die("$SCRIPT: failed to open shadow file '$CONFIG{shadow}' ($!)\n")
+		if(!open(SHADOW, $CONFIG{shadow}));	}
+#read shell file
+if(defined($CONFIG{"shell"}) && $CONFIG{"shell"} == 1)
+{	
+	die("$SCRIPT: can not get $CONFIG{-shells_file} entries ($!)\n")
+		if(!open(SHELL, "_shell.reader $CONFIG{-shells_file}|") &&
+			!open(SHELL, "$CONFIG{-path}/_shell.reader $CONFIG{-shells_file}|"));
+	while(defined(($cmd	= <SHELL>)))
+	{	chomp($cmd);
+		push(@SHELLS, $cmd);	}
+	close(SHELL);
+}
+
+#read shadow
+setpwent();
+while(defined(($line = <SHADOW>)))
+{
+	$linenum++;
+	#remove eol
+	chomp($line);
+
+	#check empty lines
+	next	if($line =~ /^#/o || $line eq '' || $line =~ /^\s+$/o);
+
+	#split data & check them
+	@shdata	= split(/:/o, $line, 9);
+	@pwdata	= getpwnam($shdata[SH_NAME]);
+	warn("$SCRIPT: incomplete data of user '".$shdata[SH_NAME]."', skipping...\n"), next
+		if($#pwdata == -1);
+
+	#test wheter account is active/not disabled (stolen from pam_unix)
+	next	if(($pwdata[PW_PASSWD] eq '*' || $pwdata[PW_PASSWD] eq '!!')			#account disabled
+			|| (!$shdata[SH_LAST_CHANGE] || $shdata[SH_LAST_CHANGE] <= 0)	#never used
+			|| ((!$shdata[SH_CHANGE_MAX] || $shdata[SH_CHANGE_MAX] <= 0) 	
+			&& !$shdata[SH_EXPIRE_DATE] && $shdata[SH_EXPIRE_DATE] != 99999));#never expires
+
+	#selection
+	next	if(($#SHELLS != -1 && !grep { $pwdata[PW_SHELL] eq $_} @SHELLS)
+			|| (exists($CONFIG{'uid_min'}) && $CONFIG{'uid_min'} >= $pwdata[PW_UID])
+			|| (exists($CONFIG{'uid_max'}) && $CONFIG{'uid_max'} <= $pwdata[PW_UID]));
+
+	#assemble data
+	@pcdata	= ($shdata[SH_NAME],				#name
+		$pwdata[PW_GCOS],				#info
+		$shdata[SH_NAME].'@'.$CONFIG{"host"},		#email
+		$shdata[SH_LAST_CHANGE]+$shdata[SH_CHANGE_MAX],	#edate
+		$shdata[SH_EXPIRE_DATE],			#adate
+		$shdata[SH_CHANGE_WARN],			#wdays
+		$shdata[SH_INACTIVE_MAX],			#idays
+		0						#nosend
+			);
+
+	#send data
+	syswrite(STDOUT, join(":", @pcdata)."\n");
+
+	#undef data
+	undef @shdata;
+	undef @pwdata;
+	undef @pcdata;	
+}
+endpwent();
+
+#EOF (c) by UN*X 1970-$EOD (End of Days) [ EOD (c) by God ]

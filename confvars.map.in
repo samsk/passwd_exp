@@ -1,0 +1,23 @@
+###
+# Transform configuration script
+###
+
+PERL:@PERL@
+PROGNAME:@PROGNAME@
+VERSION:@VERSION@
+SENDMAIL:@SENDMAIL@
+HAVE_SENDMAIL:@HAVE_SENDMAIL@
+HAVE_LOCALE{\(.*\)}:@HAVE_LOCALE@
+MAILX:@MAILX@
+DB_MODULE:@DB_MODULE@
+PERL_v:@PERL_v@
+SED_v:@SED_v@
+pw_moddir:@pw_moddir@
+libdir:@libdir@
+sbindir:@sbindir@
+sysconfdir:@sysconfdir@/passwd_exp
+datarootdir:@datarootdir@
+exec_prefix:@exec_prefix@
+prefix:@prefix@
+datadir:@datadir@
+@NOT_CONFIGURED@

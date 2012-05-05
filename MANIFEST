@@ -1,0 +1,29 @@
+TODO					todo list
+README					package readme
+COPYING					license file
+MANIFEST				self
+ChangeLog				changelog file
+configure				
+configure.in
+install-sh
+install-trans-sh			compilation script
+mkinstalldirs
+confvars.map.in
+Makefile.in
+passwd_exp.conf				configuration file
+passwd_exp.cron				cron script
+passwd_exp-admin.cron			admin cron script
+passwd_exp				main script file
+doc					documentation dir
+doc/input.struct
+doc/man					manuals dir
+doc/man/passwd_exp.1
+mod					modules dir
+mod/_shell.reader
+mod/_termcap.reader
+mod/shadow.linux
+mod/shadow.linux.info
+mod/passwd.bsd
+mod/passwd.bsd.info
+mod/vmail.pfadmin
+mod/vmail.pfadmin.info

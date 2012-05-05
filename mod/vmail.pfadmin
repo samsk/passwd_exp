@@ -1,0 +1,34 @@
+#! /bin/bash
+
+(
+echo "ERROR: This will be module for password expiration checking of the"
+echo "ERROR: database based virtual emails managed via pfadmin package"
+echo "ERROR: http://devel.dob.sk/pfadmin"
+echo "ERROR: Not implemented yet (stable version not released yet)"
+) 1>&2
+exit 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#EOF (c) by UN*X 1970-$EOD (End of Days) [ EOD (c) by God ]

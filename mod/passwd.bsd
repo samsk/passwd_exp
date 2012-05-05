@@ -1,0 +1,236 @@
+#! /usr/bin/perl
+# PROGRAM	: passwd.fbsd (passwd_exp 1.x helper)
+# PURPOSE	: create input list from 4.3BSD passwd format file
+# AUTHOR	: Samuel Behan <samkob@gmail.com> (c) 2000-2006
+# HOMEPAGE	: http://devel.dob.sk/passwd_exp
+# LICENSE	: GNU GPL v2, NO WARRANTY VOID (see file LICENSE)
+################################################################################
+#requirements
+use POSIX	 qw(uname);
+#pragmas
+#use strict;
+use integer;
+use vars qw($VERSION $AUTHOR $AUTHOR_EMAIL $SCRIPT);
+
+#script info
+$AUTHOR		= 'Samuel Behan';
+$AUTHOR_EMAIL	= 'samkob@gmail.com';
+$VERSION	= '0.1.0';
+$SCRIPT		= 'passwd.fbsd';
+
+#config defaults
+my %CONFIG;
+$CONFIG{-shells_file}	= '/etc/shells';
+$CONFIG{"passwd"}	= '/etc/passwd';
+$CONFIG{"host"}		= ( uname() )[1];
+$CONFIG{"login_conf"}	= '/etc/login.conf';
+$CONFIG{-path}		= (@_ = split('/', $0), pop @_, join('/', @_)); 
+
+##constants
+#shadow
+sub PW_NAME		{	0;	};
+sub PW_PASSWD		{	1;	};
+sub PW_UID		{	2;	};
+sub PW_GID		{	3;	};
+sub PW_CLASS		{	4;	};
+sub PW_LAST_CHANGE	{	5;	};
+sub PW_EXPIRE_DATE	{	6;	};
+sub PW_GECOS		{	7;	};
+sub PW_DIR		{	8;	};
+sub PW_SHELL		{	9;	};
+sub PW__MAX		{	10;	};
+
+#print info
+sub cmd_print_info(;$)
+{	
+	print STDERR <<__EOT__
+usage: $SCRIPT [command] [options]
+      -- $SCRIPT (passwd_exp helper) $VERSION by $AUTHOR 
+[command]
+	info			print module info
+[options]
+	uid_min=INT		set minimum UID
+	uid_max=INT		set maximum UID
+	uid_regexp=EXPR		check UID against regexp
+	gid_min=INT		set minimum GID
+	gid_max=INT		set minimum GID
+	gid_regexp=EXPR		check GID against regexp
+	group_regexp=EXPR	check group name against regexp
+	class_regexp=EXPR	check class name against regexp
+	host=HOST		set host name
+	shell=0/1		require valid shell (from '$CONFIG{-shells_file}')
+	passwd=FILE		set passwd file to use (default '$CONFIG{passwd}')
+	login_conf=FILE		login.conf file to use (default '$CONFIG{login_conf}')
+__EOT__
+;
+	exit(defined($_[0]));
+}
+
+
+################
+# MAIN PROGRAM #
+################
+my ($cmd, $line, $linenum, @pwdata, @pcdata);
+my (@SHELLS, %LOGIN);
+
+#parse command line
+foreach $cmd (@ARGV)
+{
+	cmd_print_info() if($cmd eq '-info' || $cmd eq '--info' || $cmd eq '-h' ||
+				$cmd eq '-help' || $cmd eq '--help' || $file ne '');
+	cmd_print_info(1) if(substr($cmd, 0, 1) eq '-' || substr($cmd, 0, 2) eq '--');
+	if($cmd =~ /^(\w+)=(.*)$/o)
+	{	$CONFIG{$1} = $2 if(defined($2) && $2 ne '');
+		next;	}
+	warn("$SCRIPT: unknown argument '$cmd'\n")
+}
+#check params
+die("$SCRIPT: missing host name (try passing host=HOST), exiting...\n")
+	if(!defined($CONFIG{"host"}) || $CONFIG{"host"} eq '');
+
+#open passwd file
+die("$SCRIPT: failed to open passwd file '$CONFIG{passwd}' ($!)\n")
+	if(!open(PASSWD, $CONFIG{passwd}));
+
+#test if login.conf exists and is readable
+die("$SCRIPT: failed to read $CONFIG{login_conf} file ($!)\n")
+	if(!(-e $CONFIG{"login_conf"} && -r $CONFIG{"login_conf"}));
+
+#read whole login conf file
+warn("$SCRIPT: can not get login.conf entries ($!)\n")
+	if(!open(LOGIN_CONF, "_termcap.reader -all $CONFIG{login_conf}|") &&
+		!open(LOGIN_CONF, "$CONFIG{-path}/_termcap.reader -all $CONFIG{login_conf}|"));
+while(defined(($line = <LOGIN_CONF>)))
+{
+	chomp($line);
+	$line =~ s/^(.+?):://o;
+	$LOGIN{$1} = $line;
+}
+close(LOGIN_CONF);
+
+#read shell file
+if(defined($CONFIG{"shell"}) && $CONFIG{"shell"} == 1)
+{	
+	die("$SCRIPT: can not get $CONFIG{-shells_file} entries ($!)\n")
+		if(!open(SHELL, "_shell.reader $CONFIG{-shells_file}|") &&
+			!open(SHELL, "$CONFIG{-path}/_shell.reader $CONFIG{-shells_file}|"));
+	while(defined(($cmd	= <SHELL>)))
+	{	chomp($cmd);
+		push(@SHELLS, $cmd);	}
+	close(SHELL);
+}
+
+##
+# get_login_config($class, $option)
+sub get_login_conf($$)
+{
+	my $class = $_[0];
+	my $opt	= $_[1];
+	my $retval;
+
+	#test for class definition
+	$class = "default" if(!defined($class) || $class eq '' || !exists($LOGIN{$class}));
+	#match value
+	$retval = $1 if($LOGIN{$class}	=~ /:$opt=(.*?):/);
+	#check for redir to another class
+	if($retval eq '' && $LOGIN{$class} =~ /:tc=(.*?):/)
+	{	return get_login_conf($1, $opt);	}
+	else	#or return loaded value
+	{	return $retval;			}
+}
+
+##
+# eval_to_days($value)
+sub eval_to_days($)
+{
+	my $value = $_[0];
+	my %mod2sec = (
+		"y" => 31536000,
+		"w" => 604800,
+		"d" => 86400,
+		"h" => 3600,
+		"m" => 60,
+		"s" => 1
+		);
+	my $retval = 0;
+
+	#transform time
+	while(defined($value) && $value ne '')
+	{
+		#match any string, very relax format checking
+		$value =~ s/^(\d*?)(\w)//;
+		$retval += $1 * (exists($mod2sec{$2}) ? $mod2sec{$2} : 0);
+	}
+	#return in days
+	$retval = $retval / 86400;
+	return $retval;
+}
+
+#read passwd
+$linenum = 0;
+while(defined(($line = <PASSWD>)))
+{
+	$linenum++;
+	chomp($line);
+
+	#check empty lines
+	next	if($line =~ /^#/o || $line eq '' || $line =~ /^\s+$/o);
+
+	#split data & check them
+	@pwdata	= split(/:/o, $line, PW__MAX);
+	
+	#notice days for account expire
+	my $warn_exp	= get_login_conf($pwdata[PW_CLASS], "warnexpire");	
+	if(!defined($warn_exp) || $warn_exp eq '')
+	{	$warn_exp = 0;				}
+	else
+	{	$warn_exp = eval_to_days($warn_exp);	}
+
+	#notice days for passwd expire
+	my $warn_pass	= get_login_conf($pwdata[PW_CLASS], "warnpassword") ;	
+	if(!defined($warn_pass) || $warn_pass eq '')
+	{	$warn_pass = 0;				}
+	else
+	{	$warn_pass = eval_to_days($warn_pass);	}
+	# HACK FOR report engine (we got currently only one global expire field
+	$warn_exp = $warn_pass if($warn_pass > $warn_exp);
+
+	#notice days for account inactivation
+	my $warn_inact = get_login_conf($pwdata[PW_CLASS], "graceexpire") ;	
+	if(!defined($warn_inact) || $warn_inact eq '')
+	{	$warn_inact = 0;			}
+	else
+	{	$warn_inact = eval_to_days($warn_inact);}
+
+	#test if account active/enabled and need be reported
+	next	if(($pwdata[PW_PASSWD] eq '*' || $pwdata[PW_PASSWD] eq '!!')		#disabled
+			|| ((!$pwdata[PW_LAST_CHANGE] || $pwdata[PW_LAST_CHANGE] <= 0)	#never used
+			&& (!$pwdata[PW_EXPIRE_DATA] && $pwdata[PW_EXPIRE_DATA] <= 0)));#never expires
+
+	#transform times
+	$pwdata[PW_LAST_CHANGE]	= $pwdata[PW_LAST_CHANGE] / 86400;
+	$pwdata[PW_EXPIRE_DATE] = $pwdata[PW_EXPIRE_DATE] / 86400;
+
+	#assemble data
+	@pcdata	= ($pwdata[PW_NAME],				#name
+		$pwdata[PW_GECOS],				#info
+		$pwdata[SH_NAME].'@'.$CONFIG{"host"},		#email
+		$pwdata[SH_LAST_CHANGE],			#edate
+		$pwdata[SH_EXPIRE_DATE],			#adate
+		$warn_pass,					#wdays
+		$warn_inact,					#idays
+		0						#nosend
+		);
+
+	#send data
+	syswrite(STDOUT, join(":", @pcdata)."\n");
+
+	#undef data
+	undef @pcdata;
+	undef @pwdata;
+}
+
+#finish
+close(PASSWD);
+
+#EOF (c) by UN*X 1970-$EOD (End of Days) [ EOD (c) by God ]

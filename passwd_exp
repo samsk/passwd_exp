@@ -1,0 +1,1008 @@
+#! @PERL@
+# PROGRAM	: passwd_exp @VERSION@
+# PURPOSE	: warns of account expiration via email
+# AUTHOR	: Samuel Behan <samkob(at)gmail(dot)com> (c) 2000-2009
+# HOMEPAGE	: http://devel.dob.sk/passwd_exp
+# LICENSE	: GNU GPL v2, NO WARRANTY VOID (see file LICENSE)
+################################################################################
+
+#requirements
+use Getopt::Long 	qw(:config no_ignore_case);
+use POSIX	 	qw(uname strftime);
+use Text::Tokenizer	qw(:all);
+@HAVE_LOCALE{use Locale::gettext;}@
+
+#pragmas
+use strict;
+use integer;
+use vars qw($VERSION $AUTHOR $AUTHOR_EMAIL $AGENT $SCRIPT $BANNER);
+
+#script info
+$AUTHOR		= 'Samuel Behan';
+$AUTHOR_EMAIL	= 'samkob(at)gmail.com';
+$VERSION	= '@VERSION@';
+$SCRIPT		= 'passwd_exp';
+$AGENT		= 'Password expiration agent';
+$BANNER		= "This message was produced by passwd_exp version $VERSION";
+
+##
+$|	= 1;
+my (%CONFIG, %UENV, $TIME);
+$TIME		= time();
+
+#gettext shortcut
+sub _($)	{ return @HAVE_LOCALE{gettext}@($_[0]);	}
+
+##
+# BASIC ENVIROMENT
+my($prefix, $exec_prefix, $datarootdir);
+$prefix			= "@prefix@";
+$exec_prefix		= "@exec_prefix@";
+$datarootdir		= "@datarootdir@";
+$CONFIG{-cfg_dir}	= "@sysconfdir@";
+$CONFIG{-mod_dir}	= "@pw_moddir@";
+$CONFIG{-data_dir}	= "@datadir@";
+$CONFIG{-mail_dirs}	= ("$CONFIG{-cfg_dir}/mail", "$CONFIG{-data_dir}/mail");
+$CONFIG{-conf_file}	= $CONFIG{-cfg_dir}.'/passwd_exp.conf';
+$CONFIG{-lock_file}	= "@libdir@/passwd_exp";
+$CONFIG{-lock_time}	= 22 * 3600;	#22 hours only lock time
+$CONFIG{-module}	= '@DB_MODULE@';
+$CONFIG{-module_opt}	= ();
+$CONFIG{-force}		= 0;
+$CONFIG{-const}		= ();
+$CONFIG{-conf_set}	= ();
+$CONFIG{-mode}		= 0;
+$CONFIG{-test_user}	= undef;
+$CONFIG{-test_mode}	= 0;
+$CONFIG{-check_mode}	= 0;
+$CONFIG{-verbose}	= 0;
+$CONFIG{-domain}	= (uname())[1];	$CONFIG{-domain} =~ s/^[^\.]+\.?//o;
+$ENV{'PATH'}		= $CONFIG{-mod_dir}.':/sbin:/usr/sbin:/usr/local/sbin:/usr/bin:/bin:/usr/local/bin';
+#config file defauls
+$CONFIG{'locale'}	= $ENV{'LANG'} || 'C';
+$CONFIG{'banner'}	= 1;
+$CONFIG{'expired_warn'}	= 1;
+$CONFIG{'msg_w_in'}	= _('\'%user%\' [%ustate%] will expire in %expire_days% days on %expire_date%');
+$CONFIG{'msg_w_done'}	= _('\'%user%\' [%ustate%] has expired on %expire_date% (%expire_days% days ago)');
+$CONFIG{'msg_e_in'}	= _('\'%user%\' [%ustate%] will become inactive in %inactive_days% days on %inactive_date%');
+$CONFIG{'msg_e_done'}	= _('\'%user%\' [%ustate%] has been inactived on %inactive_date% (%inactive_days% days ago)');
+$CONFIG{'msg_d_in'}	= _('\'%user%\' [%ustate%] will be disabled in %account_days% days on %account_date%');
+$CONFIG{'msg_d_done'}	= _('\'%user%\' [%ustate%] has been disabled on %account_date% (%account_days% days ago)');
+
+##
+# USER ENVIROMENT
+$UENV{'locale'}		= \$CONFIG{'locale'};
+$UENV{'recipient'}	= \$UENV{'user'};
+$UENV{'user_name'}	= $UENV{'username'}	= \$UENV{'fullname'};
+$UENV{'mail_addr'}	= $UENV{'email_addr'}	= \$UENV{'email'};
+$UENV{'expire_in'}	= $UENV{'expire_days'}	= \$UENV{'edays'};
+$UENV{'expire_date'}	= \$UENV{'edate'};
+$UENV{'inactive_in'}	= $UENV{'inactive_days'}	= \$UENV{'idays'};
+$UENV{'inactive_date'}	= \$UENV{'idate'};
+$UENV{'account_days'}	= \$UENV{'adays'};
+$UENV{'account_date'}	= \$UENV{'adate'};
+$UENV{'today'}		= $UENV{'date'}		= \(strftime("%A %e %B %Y",localtime($TIME)));
+$UENV{'ltoday'}		= $UENV{'locale_date'}	= $UENV{'ldate'}
+				= \(strftime("%x",localtime($TIME)));
+$UENV{'now'}		= $UENV{'time'}		= \(strftime("%H:%M:%S",localtime($TIME)));
+$UENV{'lnow'}		= $UENV{'locale_time'}	= $UENV{'ltime'}
+				= \(strftime("%X",localtime($TIME)));
+$UENV{'unix_time'}	= $UENV{'utime'}	= \(strftime("%s",localtime($TIME)));
+$UENV{'host_name'}	= $UENV{'hostname'} 	= $UENV{'host'}	= \(uname())[1];
+$UENV{'host_domain'}	= \$UENV{'domain'};	$UENV{'domain'}	= $CONFIG{-domain};
+$UENV{'host_os'}	= $UENV{'os'}		= \(uname())[0];
+$UENV{'host_osver'}	= $UENV{'osver'}	= \(uname())[2];
+$UENV{'host_machine'}	= $UENV{'machine'}	= 
+	$UENV{'arch'}	= $UENV{'host_arch'}	= \(uname())[4];
+#special vars (not aliasesed)
+$UENV{'agent'}		= $UENV{'sender'}	= $AGENT;
+$UENV{'version'}	= $UENV{'ver'}		= $VERSION;
+
+##
+# Constants
+sub C_NAME ()		{	0;	};
+sub C_FULLNAME ()	{	1;	};
+sub C_EMAIL ()		{	2;	};
+sub C_EDATE ()		{	3;	};
+sub C_ADATE ()		{	4;	};
+sub C_WDAYS ()		{	5;	};
+sub C_IDAYS ()		{	6;	};
+sub C_NOSEND ()		{	7;	};
+
+##
+# Configuration map
+my %t_cfg_map	= (
+	qr/^var(iable)?\[([\w-]+)\](\[([\w\*\?]+)\])?$/	=>
+			q/my $l	=	_localize($4, $opt_val);
+			  set_var($2, $l) if(defined($l));/,
+	qr/^locale$/			=> q/$CONFIG{"locale"} = $opt_val if(defined($opt_val) && ($opt_val ne "auto"))/,
+	qr/^direct(\s*|_)mta$/		=> q/$CONFIG{"direct_mta"} = _isbool($opt_val);/,
+	qr/^(mail((er)|(\s*|_)sender)?)$/	=> 
+			q/ return (-1, "mailer_recp_miss") if($opt_val !~ \/\%(recp|recipient|user)\%\/o);
+			  $CONFIG{"mailer"} = $opt_val;/,
+	qr/^module$/	=> q/$CONFIG{"module"} = $opt_val;/,
+	qr/^mod(ule)?(\s*|_)?opt(s|ion)?(\[(\w*)\])$/ =>
+			q/${ $CONFIG{-module_opt} }{$5} = $opt_val if(!exists(${ $CONFIG{-module_opt} }{$5}));/,
+	qr/^mta|mail(\s*|_)agent$/	=>
+			q/$CONFIG{"mta"} = $opt_val;/,
+	qr/^reply(\s*|_|-)to$/		=> q/$CONFIG{-mailh}{"Reply-To"} = $opt_val;/,
+	qr/^send(\s*|_|-)from$/		=> q/$CONFIG{-mailh}{"From"} = $opt_val;/,
+	qr/^mail((\s*|_|-)header)?\[([\w-]+)\]?$/	=>
+			q/$CONFIG{-mailh}{$3} = $opt_val if(defined($3));/,
+	qr/^(print(\s*|_))?banner$/	=> q/$CONFIG{"banner"}	= _isbool($opt_val);/,
+  	qr/^(meg|mexpiring)(\[([\w\*\?]+)\])?$/=> q/$CONFIG{"msg_w_in"} = _localize($3, $opt_val) || $CONFIG{"msg_w_in"};/,
+	qr/^(med|mexpired)(\[([\w\*\?]+)\])?$/	=> q/$CONFIG{"msg_w_done"} = _localize($3, $opt_val) || $CONFIG{"msg_w_done"};/,
+	qr/^(mig|minactiving)(\[([\w\*\?]+)\])?$/	=> q/$CONFIG{"msg_e_in"} = _localize($3, $opt_val) || $CONFIG{"msg_e_in"};/,
+	qr/^(mid|minactived)(\[([\w\*\?]+)\])?$/	=> q/$CONFIG{"msg_e_done"} = _localize($3, $opt_val) || $CONFIG{"msg_e_done"};/,
+	qr/^(mdig|mdinactiving)(\[([\w\*\?]+)\])?$/	=> q/$CONFIG{"msg_d_in"} = _localize($3, $opt_val) || $CONFIG{"msg_d_in"};/,
+	qr/^(mdid|mdinactived)(\[([\w\*\?]+)\])?$/	=> q/$CONFIG{"msg_d_done"} = _localize($3, $opt_val) || $CONFIG{"msg_d_done"};/,
+	qr/^(no(\s*|_)warnings?|ignore(\s*|_)users)(\s*(\.|\+))?$/	=>
+			q/return (-1, "obsoleted");/,
+  	qr/^(no(\s*|_)check((\s*|_)file)?|ignore(\s*|_)file)$/	=>
+  			q/return (-1, "obsoleted");/,
+	qr/^(warn(\s*|_)days)$/		=>
+			q/if($opt_val =~ \/^\d+$\/o) { $CONFIG{"warn_days"} = $opt_val; }
+			else	{ return (-2, 'digit');	}/,
+	qr/^(warn(\s*|_)days(\s*|_)step)$/		=>
+			q/if($opt_val =~ \/^\d+$\/o) { $CONFIG{"warn_days_step"} = $opt_val; }
+			else	{ return (-2, 'digit');	}/,
+	qr/^(mail(\s*|_)days(\s*|_)only)$/	=>
+			q/$CONFIG{"w_days"}	= $CONFIG{"e_days"} = $CONFIG{"d_days"} = $opt_val;/,
+	qr/^(wo|warn(ing)?(\s*|_)days(\s*|_)only)$/	=>
+			q/$CONFIG{"w_days"}	= $opt_val;/,
+	qr/^(ws|warn(ing)?(\s*|_)subject)(\[([\w\*\?]+)\])?$/	=>
+ 			q/$CONFIG{"w_subject"} = _localize($5, $opt_val) || $CONFIG{"w_subject"};
+    			return (-3, 'mail subject') if(length($opt_val) > 50);/,
+	qr/^(wb|warn(ing)?(\s*|_)body)(\[([\w\*\?]+)\])?$/	=>
+ 			q/$CONFIG{"w_body"} = _localize($5, $opt_val) || $CONFIG{"w_body"};/,
+	qr/^(wf|warn(ing)?(\s*|_)file)(\[([\w\*\?]+)\])?$/	=>
+			q/$CONFIG{"w_file"} = _localize($5, $opt_val) || $CONFIG{"w_file"};/,
+	qr/^warn(\s*|_)expired$/	=> q/$CONFIG{"expired_warn"} = _isbool($opt_val);/,
+	qr/^(eo|expired(\s*|_)days(\s*|_)only)$/	=>
+			q/$CONFIG{"e_days"}	= $opt_val;/,
+	qr/^(es|expired(\s*|_)subject)(\[([\w\*\?]+)\])?$/	=>
+			q/$CONFIG{"e_subject"} = _localize($4, $opt_val) || $CONFIG{"e_subject"};
+			return (-3, 'expired mail subject') if(length($opt_val) > 50);/,
+	qr/^(eb|expired(\s*|_)body)(\[([\w\*\?]+)\])?$/	=>
+  			q/$CONFIG{"e_body"} = _localize($4, $opt_val) || $CONFIG{"e_body"};/,
+	qr/^(ef|expired(\s*|_)file)(\[([\w\*\?]+)\])?$/	=>
+  			q/$CONFIG{"e_file"} = _localize($4, $opt_val) || $CONFIG{"e_file"};/,
+	qr/^(warn(\s*|_))?date(\s*|_)(expired)?$/	=>
+			q/$CONFIG{"date_warn"}	= _isbool($opt_val);/,
+	qr/^(ao|account(\s*|_)days(\s*|_)only)$/	=>
+			q/$CONFIG{"d_days"}	= $opt_val;/,
+	qr/^(as|account(\s*|_)?subject)(\[([\w\*\?]+)\])?$/	=>
+			q/$CONFIG{"d_subject"} = _localize($4, $opt_val) || $CONFIG{"d_subject"};
+			return (-3, 'date expired mail subject') if(length($opt_val) > 50);/,
+	qr/^(ab|account?(\s*|_)?body)(\[([\w\*\?]+)\])?$/	=>
+ 			q/$CONFIG{"d_body"}	= _localize($4, $opt_val) || $CONFIG{"d_body"};/,
+	qr/^(af|account?(\s*|_)?file)(\[([\w\*\?]+)\])?$/	=>
+ 			q/$CONFIG{"d_file"}	= _localize($4, $opt_val) || $CONFIG{"d_file"};/,
+);
+##
+# Configuration error map
+my %t_cfg_error	= (
+	"mailer_recp_miss"	=> _("destination user recipient missing (see mailer config reference)"),
+	"obsoleted"		=> _("directive was obsoleted, remove it"),
+);
+
+###
+# print error msg
+sub _error($;$)
+{
+	print STDERR $_[0]."\n";
+	return (defined($_[1]) ? $_[1] : -1);
+}
+
+##
+# Print version info
+sub cmd_print_version()
+{
+	print STDOUT _("passwd_exp version")." ".$VERSION."  $AUTHOR (c) 2000-2009\n";
+	return 0;
+}
+
+##
+# Print usage help
+sub cmd_print_help(;$)
+{
+	my $help_f	= *STDOUT;
+	my $err		= shift;
+	my $err_str	= "";
+	my ($k);
+	my %t_help_opts	= (
+		"-m MODULE"	=> _('use module to gather account data (try \'list\')'),
+		"-mi"		=> "\t"._('print active module informations'),
+		"-mo OPT=VALUE"	=> ""._('set module options'),
+		"-s DIR=VALUE"	=> ""._('set config file directive'),
+		"-l"		=> "\t"._('list expired/inactivated acounts'),
+		"-i"		=> "\t"._('ignore nocheck file'),
+		"-f"		=> "\t"._('force, ignore \'run once per day\' limit'),
+		"-t"		=> "\t"._('test mode, print e-mail(s) to stdout (use with -u)'),
+		"-T"		=> "\t"._('test mode, check config file only'),
+		"-w DAYS"	=> "\t"._('minimum warn days for checks'),
+		"-ws DAYS"	=> _('minimum warn days step for checks (increment warn days)'),
+		"-u USER"	=> "\t"._('check only this user'),
+		"-c FILE"	=> "\t"._('path to config file'),
+		"-v"		=> "\t"._('verbose mode (repeat for more verbosity)'),
+		"-V"		=> "\t"._('print version information'),
+		"-h"		=> "\t"._('print this help'),
+		"-d VAR=VALUE"	=> _('define variable'),
+		);
+
+	if(defined($err))
+	{	$help_f	= *STDERR;
+		$err_str	= _("Error").": ".$err;
+		chomp($err_str);$err_str .= "\n";	}
+
+	#print usage
+	print $help_f _("usage").": $SCRIPT [options] [ USER ]\n";
+	print $help_f "      -- passwd_exp $VERSION by $AUTHOR\n";
+
+	#print error
+	print $help_f $err_str;
+
+	#print options
+	print $help_f _("[options]")."\n";
+	foreach $k (sort(keys(%t_help_opts)))
+	{	print $help_f "\t".$k."\t".$t_help_opts{$k}."\n";	}
+
+	exit(!defined($err));
+}
+
+##
+# Print verbose messages
+sub verbose($$)
+{
+	syswrite(STDERR, $_[1]."\n")
+		if(defined($CONFIG{-verbose}) && $_[0] <= $CONFIG{-verbose});
+	return 1;
+}
+
+##
+# Set var
+sub set_var($$)
+{
+	my $var	= shift;
+	my $val	= shift;
+	my $refv;
+
+	return if(!defined($var) && $var ne '');
+	#check for reference
+	if(ref($CONFIG{-const}{$var}) eq 'SCALAR')
+			{ $refv = $CONFIG{-const}{$var}; }
+	else		{ $refv = \$CONFIG{-const}{$var}; }
+	${ $refv }  = $val;
+	return 1;
+}
+
+## 
+# Load configuration from file
+# ERRORS: -1 error message
+#	  -2 bad format
+#	  -3 too long
+#
+my $EXEC_CODE;
+sub cmd_load_cfg($)
+{
+	my $file = shift;
+
+	sub _isbool($)
+	{	return 0 if(!defined($_[0]));
+		return 1 if($_[0] =~ /^yes|ok|allow|enable|1|true|oui|siano|jo|hej|da|ja|si$/oi);
+		return 0 if($_[0] =~ /^non?|deny|disable|0|false|ne|nicht|never$/oi);
+		return undef;	}
+	sub _localize($$)
+	{	defined($_[0]) || return $_[1];
+		my $q	= $_[0];
+ 		$q	=~ s/(\*)|(\?)|(\W)/${
+    				defined($1) ? \('.*') : (
+				defined($2) ? \('.')  : \("\\$3"))
+				}/og;
+		return $_[1] if(defined($CONFIG{'locale'}) &&
+					$CONFIG{'locale'} =~ /^$q$/);
+		return undef;	}
+	sub _configure($$$$)
+	{
+		my $opt_key	= shift;
+		my $opt_val	= shift;
+		my $file	= shift;
+		my $line	= shift;
+		my($k, @do_ret);
+
+		#find config definition
+		foreach $k (keys(%t_cfg_map))
+		{	next if($opt_key	!~ /$k/);
+			$EXEC_CODE	= $t_cfg_map{$k};
+
+			#do configure
+			@do_ret		= eval($EXEC_CODE);
+			#check for eval error
+			if($@ ne '')
+			{	print STDERR "$0: [programming error]\n\tCODE: $EXEC_CODE\n--- DIE ---\n$@-----------\n";
+				exit(1);	}
+			#report config error
+			if(defined($do_ret[0]) 
+				&& substr($do_ret[0], 0, 1) eq '-'
+						&& $do_ret[0] < 0)
+			{
+				if($do_ret[0] == -1)
+				{	return _error("[$file:$line] <$opt_key> ".$t_cfg_error{$do_ret[1]}, 0);	}
+				elsif($do_ret[0] == -2)
+				{	return _error("[$file:$line] <$opt_key> "._("bad input value format, expecting")." '$do_ret[1]'");	}
+				elsif($do_ret[0] == -3)
+				{	return _error("[$file:$line] <$opt_key> "._("input value too long")." ".$do_ret[1]);	}
+				else
+				{	print STDERR "$0: [programming error]\n\tCODE: $EXEC_CODE\n--- DIE ---\n Unhandled error code '$do_ret[0]' -----------\n";
+					exit(1);	}
+			}
+			return 1;
+		}
+		_error("[$file:$line] ".
+			_("unknown configuration directive")." '$opt_key'");
+		return undef;
+	}
+
+	no strict 'subs';
+
+	#open cfg file
+	return _error("$SCRIPT: "._("failed opening config file")." `$file' ($!)", 0)
+		if(!open(F_CFG, $file));
+
+	#setup tokenizer
+	my ($tokid);
+	$tokid	= tokenizer_new(F_CFG);
+	tokenizer_options(TOK_OPT_UNESCAPE_LINES);
+	use strict;
+
+	#read conf
+	my (@opt_str, $opt_data, $opt_ign, $opt_key);
+	my ($tok_str, $tok_type, $tok_line, $tok_err, $tok_errline);
+	while(1)
+	{
+SCAN:
+		($tok_str, $tok_type, $tok_line, $tok_err, $tok_errline) =
+				tokenizer_scan();
+		last if($tok_type == TOK_EOF || $tok_type == TOK_ERROR ||
+				$tok_type == TOK_UNDEF);
+
+		#do conf
+		if($tok_type == TOK_EOL)
+		{	goto RESET if($#opt_str == -1 && !defined($opt_data));
+			push(@opt_str, $opt_data);
+			goto CONFIG;	}
+
+		#divide by =
+		if($tok_type == TOK_TEXT && $tok_str =~ /^([^=]*)\s*=\s*(.*)$/o)
+		{	$opt_data .= $1;
+			push(@opt_str, $opt_data);
+			$opt_data = $2;
+			goto SCAN;	}
+
+		#XXX: possible bug here, i don't check token type of adding
+		#	string so we can add something bad in
+
+		#load data
+		$opt_data .= $tok_str;
+		goto SCAN;
+CONFIG:
+		my ($opt_val);
+
+		#fix file pos
+		$tok_line--;
+
+		#get option value
+		$opt_val	= pop(@opt_str) if($#opt_str != 0);
+		$opt_val	= $1	if(defined($opt_val) &&
+						$opt_val =~ /^\s*(.*?)\s*$/o);
+		$opt_val	= ''	if(!defined($opt_val));
+		foreach $opt_key (@opt_str)
+		{	
+			#trim white spaces
+			$opt_key	= $1	if($opt_key =~ /^\s*(.*?)\s*$/o);
+			#ignore blank key
+			next	if(defined($opt_key) && $opt_key eq '');
+			#preform configure
+			_configure($opt_key, $opt_val, $file, $tok_line) ||
+				return 0;
+
+			#clean
+			$EXEC_CODE	= undef;
+		}
+RESET:
+		undef @opt_str;
+		$opt_data = undef;
+	}
+	close(F_CFG);
+	undef $EXEC_CODE;
+	return 1;
+}
+
+##
+# Check lock file
+sub cmd_check_lock($)
+{
+	my $file	= shift;
+	my @finfo;
+
+	#stat lock file
+	@finfo	= stat($file);
+	if($#finfo != -1) {	#lock file not found, create new one
+	#check time
+	return _error("$SCRIPT: "._("trying to perform expiration check too soon (use -f to override). Check should be perfomed only once a day !!!"), 0)
+			if($finfo[9] > ($TIME - $CONFIG{-lock_time}));	}
+	#update lock file
+	open(LOCK, ">".$CONFIG{-lock_file}) ||
+		return _error("$SCRIPT: "._("failed to update lock file")." '$file' ($!)", -1);
+	my $data;
+
+	$data	.= strftime("%s\n",localtime($TIME));
+	$data	.= strftime("%a %b %e %H:%M:%S %Y",localtime($TIME));
+	syswrite(LOCK, $data);
+	close(LOCK);
+	return 1;
+}
+
+
+# special vars
+my (@udata, @usdata, %days);
+#$expire_days == w, $inactive_days == e , $datexp_days == d);
+
+##
+# Apply message enviroment
+# XXX: this is what i call POWERFULL REGEXP or EXTREME HACK
+sub eval_vars($\%\%)
+{
+	my $str		= shift;
+	my $evar_h	= shift;
+	my %evar	= %{ $evar_h };
+	my $env_h	= shift;
+	my %env		= %{ $env_h };
+
+	# replace user vars
+	$str	=~ s/(%([\w-]+)(\[(\w+)\])?%)/${
+		(!exists($evar{$2})) ?		\$1		:
+#		!defined($evar{$2}) ?		\('UNDEF')	:
+		(ref($evar{$2}) eq '') ?	\$evar{$2}	:
+		(ref($evar{$2}) eq 'SCALAR') ?	
+#			((defined(${ $evar{$2} })) ?
+#				$evar{$2}	: \('UNDEF'))	:
+						$evar{$2}	:
+		(ref($evar{$2}) eq 'ARRAY') ?
+			((!defined($4) || !exists(${ $evar{$2} }[$4])) ?
+				\$1	: \${ $evar{$2} }[$4])	:
+		die('[programming error]')
+			}/og;
+
+	# evalute special vars
+ 	$str	=~ s/%((w|warn(ing)?)|(e|expire)|(a|account)|(c|curr?(ent)?))(_|\.|-|->|=>)%?
+  		([aAbBcCdDeEgGhHIjkmMOpPrsStTuUVwWxXyYzZ\+])%/${
+  		(defined($2)) ?
+			\strftime("%$9", localtime($TIME + $days{'w'} * 86400))
+								:
+		(defined($4)) ?
+			\strftime("%$9", localtime($TIME + $days{'e'} * 86400))
+								:
+		(defined($5)) ?
+			\strftime("%$9", localtime($TIME + $days{'d'} * 86400))
+								:
+	 		\strftime("%$9", localtime($TIME))
+			}/oxg;
+
+	# evalute enviroment vars
+	$str	=~ s/(\$((\w+)|\{(\w+)\}))/${
+			exists($env{$3 || $4}) ? \$env{$3 || $4} : \$1
+			}/og;
+	#evalute special chars
+	$str	=~ s/\\([tnrfae]|x[[:xdigit:]]{1,4}|x\{[[:xdigit:]]{1,4}\})/${
+			eval('return \("\\'.$1.'");') }/og;
+	return $str;
+}
+
+##
+# Setup variables
+sub setup_vars()
+{
+	$UENV{'user'}		= $udata[C_NAME];
+	$UENV{'fullname'}	= $udata[C_FULLNAME] || $udata[C_NAME];
+	$UENV{'email'}		= $udata[C_EMAIL];
+	$UENV{'edays'}		= abs($days{'w'});
+	$UENV{'edate'}		= strftime("%a %e %B %Y",localtime($TIME + $days{'w'} * 86400));
+	$UENV{'idays'}		= abs($days{'e'});
+	$UENV{'idate'}		= strftime("%a %e %B %Y",localtime($TIME + $days{'e'} * 86400));
+	$UENV{'adays'}		= abs($days{'d'});
+	$UENV{'adate'}		= strftime("%a %e %B %Y",localtime($TIME + $days{'d'} * 86400));
+
+	#eval user constants
+	my $k;
+	foreach $k (keys(%{ $CONFIG{-const} }))
+	{	next if(!defined(${ $CONFIG{-const} }{$k}));
+		#some calls might get saved here
+		$UENV{$k} = eval_vars(${ $CONFIG{-const} }{$k}, %UENV, %ENV);	}
+	return 1;
+}
+
+##
+# Return mail data
+sub get_mail_data($)
+{
+	my $mode = shift;
+	my $file = $CONFIG{$mode.'_file'};
+
+	#mail file not defined
+	return ($CONFIG{$mode.'_subject'}, $CONFIG{$mode.'_body'})
+				if(!defined($file));
+
+	#eval file
+	my $found;
+	$file	= eval_vars($file, %UENV, %ENV);
+	#test path absolutness
+	if(!substr($file, 0, 1) eq '/')
+	{	my $dir;
+		#check if file exists
+		foreach $dir ($CONFIG{-mail_dirs})
+		{	if( -e "$dir/$file" )
+			{	$file	= "$dir/$file";
+				last;	}	}	}
+	#final existance
+	if(! -e $file)
+	{	_error("$SCRIPT: ".sprintf(_("Mail file '%s' not found, skipping..."), $file));
+		#we die if mail file not found
+		return (undef, 1) if($file eq $CONFIG{$mode.'_file'});
+		return (undef, 0);		}
+
+	#parse file
+	if(!open(MAILF, $file))
+	{	_error("$SCRIPT: ".sprintf(_("Failed to open mail file, skipping..."), $file));
+		#we die if mail file not found
+		return (undef, 1) if($file eq $CONFIG{$mode.'_file'});
+		return (undef, 0);		}
+
+	my ($subj, $body);
+
+	#read subj (first line of file)
+	$subj	= <MAILF>;
+	chomp($subj);
+
+	#read body (rest of file, or to the dot line)
+	my $line;
+	while(defined($line = <MAILF>) && $line !~ /^\.$/o)
+	{	$body .= $line;		}
+
+	close(MAILF);
+	return ($subj, $body);
+}
+
+##
+# Send email
+# sub cmd_sendmail($recp, $subj, $messg)
+sub cmd_sendmail($$$)
+{
+	my $mail_recp	= shift;
+	my $mail_subj	= shift;
+	my $mail_msg	= shift;
+	my (@mail_head, $mail, $k);
+
+	#personalize messages
+	$mail_recp	= eval_vars($mail_recp, %UENV, %ENV);
+	$mail_subj	= eval_vars($mail_subj, %UENV, %ENV);
+	$mail_msg	= eval_vars($mail_msg, %UENV, %ENV);
+
+	#check input
+	exit(_error("$SCRIPT: Mail body not defined, exiting..", 1))
+			if(!defined($mail_msg) || $mail_msg eq '');
+	$mail_subj	= $AGENT." email"
+			if(!defined($mail_subj) || $mail_subj eq '');
+
+	#create mail head
+	push(@mail_head, "From: ".(exists($CONFIG{-mailh}{'From'}) ? $CONFIG{-mailh}{'From'} : "$AGENT <root\@localhost.localdomain>" ));
+	push(@mail_head, "Reply-To: ".$CONFIG{-mailh}{'Reply-To'}) if(exists($CONFIG{-mailh}{'Reply-To'}));
+#FIXME: delete mail headers
+	push(@mail_head, "To: ".$mail_recp);
+	push(@mail_head, "Subject: ".$mail_subj);	
+	push(@mail_head, "Full-Name: ".$UENV{'fullname'});
+	push(@mail_head, "X-Mailer: $SCRIPT $VERSION");
+	#add user headers
+	foreach $k (keys(%{ $CONFIG{-mailh} }))
+	{	#ignore already set headers
+		next if(grep (/^$k$/, ("From", "Reply-To", "To", "Subject", "Full-Name", "X-Mailer")));
+		push(@mail_head, "$k: ".eval_vars($CONFIG{-mailh}{$k}, %UENV, %ENV));	}
+	#assemble mail
+	foreach $k (@mail_head)
+	{	$mail	.= "$k\n";	}
+
+	#open destination + print headers (if needed)
+	if($CONFIG{-test_mode} == 1)
+	{	open(MAIL, ">&STDOUT");
+		syswrite(MAIL, "--- EMAIL($mail_recp) --------\n");
+		syswrite(MAIL, $mail);	}
+	elsif(defined($CONFIG{"direct_mta"}) && $CONFIG{"direct_mta"} == 1)
+	{	open(MAIL, "| $CONFIG{mta} -i '$mail_recp'") ||
+			return _error("$SCRIPT: "._("(mta) mail transport agent was unable send e-mail using")." '$CONFIG{mta}' ($!)", 0);
+		syswrite(MAIL, $mail);	}
+	elsif(defined($CONFIG{"mailer"}))
+	{	my $cmd;
+
+		#assemble command
+		$cmd	= eval_vars($CONFIG{"mailer"}, 
+					%{ { "recipient"=> $mail_recp,
+					  "user"	=> $UENV{'user'},
+					  "subject"	=> $mail_subj,
+					  "recp"	=> \$mail_recp,
+					  "subj"	=> \$mail_subj	} },
+					%ENV);
+		open(MAIL, "| $cmd") ||
+			return _error("$SCRIPT: "._("(mailer) unable to send e-mail via '$cmd'")." ($!)", 0);	}
+	else
+	{	exit(_error("$SCRIPT: No sending agent defined, exiting...", 1));	}
+
+	#now print message to email
+	syswrite(MAIL, $mail_msg."\n");
+	syswrite(MAIL, "\n---\n".$BANNER."\n")
+		if(defined($CONFIG{"banner"}) && $CONFIG{"banner"} == 1);
+	close(MAIL) ||
+		exit(_error("$SCRIPT: "._("Sending agent returned error retval")." ($!)",1));
+	return 1;
+}
+
+##
+# Match day to pattern
+# sub match_day($pattern, $value)
+sub match_day($$)
+{
+	my @ar	= split(' ', shift);
+	my $val  = shift;
+
+	my $patt;
+	foreach $patt (@ar)
+	{	#easy test for *
+		return 1 if($patt eq '*');
+		#test for digit
+		return 1 if($patt == $val);
+		#test for range
+		return 1 if(($patt =~ /^(\d+)-(\d+)?$/o)
+				&& ($val >= $1)
+				&& (!defined($2) || ($val <= $2)));
+		#test for repeat pattern
+		return 1 if($patt =~ /^\*\/(\d+)$/o
+				&& ($1 != 0) && ($val % $1 == 0));
+	}
+	return 0;
+}
+
+################
+# MAIN PROGRAM #
+################
+my ($cmd);
+
+#parse command line
+$SIG{__WARN__}	= sub { exit(cmd_print_help($_[0])); };
+$cmd	= Getopt::Long::GetOptions(
+		"c|config=s"	=> \$CONFIG{-conf_file},
+		"u|user=s"	=> \$CONFIG{-test_user},
+		"l|list"	=> sub { $CONFIG{-mode} = 1; },
+		"f|force!"	=> \$CONFIG{-force},
+		"t|test"	=> \$CONFIG{-test_mode},
+		"T|configcheck"	=> \$CONFIG{-check_mode},
+		"v|verbose+"	=> \$CONFIG{-verbose},
+		"V|Version"	=> sub { exit(cmd_print_version()); },
+		"h|help"	=> sub { exit(cmd_print_help()); },
+		"w|warn-days=i"		=> \$CONFIG{-warn_days},
+		"ws|warn-days-step=i"	=> \$CONFIG{-warn_days_step},
+		"d|define=s%"	=> \$CONFIG{-const},
+		"m|module=s"	=> \$CONFIG{-module},
+		"mi|module-info"   => \$CONFIG{-module_info},
+		"mo|module-opt=s%" => \$CONFIG{-module_opt},
+		"s|set=s%"	=> \$CONFIG{-conf_set},
+		"<>"		=> sub { $CONFIG{-test_user} = $_[0]; },
+	);
+exit(1)	if(!$cmd);	#Bad imput
+$SIG{__WARN__}	= 'DEFAULT';
+
+#list avaible modules
+if(defined($CONFIG{-module}) && $CONFIG{-module} eq 'list')
+{	
+	opendir(DIR, $CONFIG{-mod_dir})
+		|| exit(_error("$SCRIPT: "._("can not list modules")." ($!)",1));
+	print _("Modules").":\n";
+	while(defined(($cmd = readdir(DIR))))
+	{	next if(substr($cmd, 0, 1) eq '.' ||
+				! -x $CONFIG{-mod_dir}.'/'.$cmd);
+		next if(substr($cmd, -5) eq '.info');	#ignore info files
+		next if(substr($cmd, 0, 1) eq '-');	#ignore helper mods
+		printf("\t%-20s", $cmd);
+		if(-r $CONFIG{-mod_dir}.'/'.$cmd.'.info')
+		{	open(F_INFO, $CONFIG{-mod_dir}.'/'.$cmd.'.info');
+			$cmd	= <F_INFO>;
+			chomp($cmd);
+			print substr($cmd, 0, 52);
+			close(F_INFO);	}
+		print "\n";
+	}
+	closedir(DIR);
+	exit(0);	}
+
+#load config file
+verbose(1, "Loading config file `$CONFIG{-conf_file}'...");
+cmd_load_cfg($CONFIG{-conf_file}) || exit(1);
+
+#config check mode
+if($CONFIG{-check_mode} == 1)
+{	print _("Syntax OK")."\n";
+	exit(0);	}
+
+# fix config
+#remove bad mail headers
+foreach $cmd (qw(To Subject Full-Name X-Mailer))
+{	delete $CONFIG{-mailh}{$cmd};	}
+
+#setup command line config
+foreach $cmd (sort(keys(%{ $CONFIG{-conf_set} })))
+{	_configure($cmd, ${ $CONFIG{-conf_set} }{$cmd}, "<-s>", 0) || exit(1);	}
+
+#check lock file
+verbose(1, "Checking lock file `$CONFIG{-lock_file}'...");
+exit(1) if((exists($CONFIG{-test_mode}) && $CONFIG{-test_mode} != 1)
+		&& (exists($CONFIG{-force}) && $CONFIG{-force} != 1)
+		&& (!defined($CONFIG{-test_user}))
+		&& ($CONFIG{-mode} != 1)
+		&& (exists($CONFIG{-module_info}) && $CONFIG{-module_info} != 1)
+		&& cmd_check_lock($CONFIG{-lock_file}) != 1);
+
+#get user database (via submodule)
+my ($line, $linenum, $mode, $days);
+$days		= int($TIME / 86400);
+$UENV{'data'}		= \@udata;
+$UENV{'userdata'}	= $UENV{'udata'}	= \@usdata;
+
+$CONFIG{-module}	= $CONFIG{"module"};
+exit(_error("$SCRIPT: No data module defined (see -m argument)", 1))
+		if(!defined($CONFIG{-module}) || $CONFIG{-module} eq '');
+$CONFIG{-module}	.= ' info'
+		if(defined($CONFIG{-module_info}) && $CONFIG{-module_info} == 1);
+foreach $cmd (sort(keys(%{ $CONFIG{-module_opt}})))
+{	$CONFIG{-module}	.= " '$cmd=${ $CONFIG{-module_opt} }{$cmd}'";	}
+
+verbose(1, "Executing data module `$CONFIG{-module}'...");
+open(USERS, "-|", $CONFIG{-module})
+		|| exit(_error("$SCRIPT: "._("failed to retreive user list data"). " ($!)", 1));
+while(defined(($line = <USERS>)))
+{
+	$linenum++;
+	#ignore commented lines + remove eol
+	next	if(substr($line, 0, 1) eq '#');	
+	chomp($line);
+
+	#split data & check them
+	verbose(2, "[line $linenum] Parsing input data");
+	@udata	= split(/(?<!\\):/o, $line);
+	#find out our sys/special separator
+	@usdata	= @udata;
+	foreach $_ (@udata)
+	{	shift(@usdata); last if($_ eq '*');	}
+
+	#check only specific user
+	next if(defined($CONFIG{-test_user}) && 
+			$udata[C_NAME] ne $CONFIG{-test_user});
+
+	#complete data
+	$udata[C_WDAYS]	= $CONFIG{-warn_days}
+				if(defined($CONFIG{-warn_days}) && $udata[C_WDAYS] < $CONFIG{'warn_days'});
+	$udata[C_WDAYS]	= $CONFIG{'warn_days'}
+				if(defined($CONFIG{'warn_days'}) && $udata[C_WDAYS] < $CONFIG{'warn_days'} 
+					&& !defined($CONFIG{-warn_days}));
+	#warn days step
+ 	$udata[C_WDAYS]	+= $CONFIG{-warn_days_step}
+				if(defined($CONFIG{-warn_days_step}));
+	$udata[C_WDAYS]	+= $CONFIG{'warn_days_step'}
+				if(defined($CONFIG{'warn_days_step'}) && !defined($CONFIG{-warn_days_step}));
+	$udata[C_WDAYS]	= 0	if(!defined($udata[C_WDAYS]) || $udata[C_WDAYS] eq '');
+	$udata[C_IDAYS]	= 0	if(!defined($udata[C_IDAYS]) || $udata[C_IDAYS] eq '');
+	$udata[C_ADATE] = 0	if(!defined($udata[C_ADATE]) || $udata[C_ADATE] eq '');
+	$udata[C_EDATE] = 0	if(!defined($udata[C_EDATE]) || $udata[C_EDATE] eq '');
+
+	#check input data format
+	verbose(2, "[line $linenum] [user $udata[0]] Checking input data format");
+	foreach $cmd (@{ [C_WDAYS, C_IDAYS, C_EDATE, C_ADATE] })
+	{	exit(_error("[$CONFIG{-module}:$linenum:<".($cmd).">] ".
+				_("element should be an integer value"), 1))
+			if(!($udata[$cmd]	=~ /^\d+|$/o));	}
+
+	exit(_error("[$CONFIG{-module}:$linenum:<".(C_NOSEND).">] ".
+				_("element should be an bool value (1/0)"), 1))
+			if(!($udata[C_NOSEND]	=~ /^1|0|$/o));
+	exit(_error("[$CONFIG{-module}:$linenum:<".(C_NAME).">] ".
+				_("element should be an word value"), 1))
+			if(!($udata[C_NAME]	=~ /^\S+$/o));
+	exit(_error("[$CONFIG{-module}:$linenum:<".(C_EMAIL).">] ".
+				_("element should be an email address"), 1))
+			if(!($udata[C_EMAIL]	=~ /^\S+(\@\S+)?$/o));
+
+	#create enviroment
+	verbose(2, "[line $linenum] [user $udata[0]] Computing values");
+	$days{'w'}	= $udata[C_EDATE]  - $days;
+	$days{'e'}	= ($udata[C_EDATE] + $udata[C_IDAYS]) - $days;
+	$days{'d'}	= $udata[C_ADATE]  - $days;
+	verbose(3, "[line $linenum] [user $udata[0]] w:$days{w} e:$days{e} d:$days{d}");
+
+	#make %ustate%
+	$UENV{'ustate'}	= undef;
+	$UENV{'ustate'} .= 'C'
+		if(defined($udata[C_NOSEND]) && $udata[C_NOSEND] == 1);
+
+	#check if any action required
+	verbose(2, "[line $linenum] [user $udata[0]] Determining warning mode");
+	if($udata[C_WDAYS] != 0 && abs($days{'d'}) <= $udata[C_WDAYS])
+	{	$mode = 'd';	
+		$UENV{'ustate'}	.= 'D';	}		#date expiration
+	elsif((($udata[C_IDAYS] != 0 && abs($days{'e'}) <= $udata[C_IDAYS])
+			|| (abs($days{'e'}) < abs($days{'w'})))	#inactivation takes precedence
+			&& (($CONFIG{-mode} == 1) || ($CONFIG{"expired_warn"})))
+	{	$mode = 'e';	}			#expired (inactivation)
+	elsif($udata[C_WDAYS] != 0 && (abs($days{'w'}) <= $udata[C_WDAYS]
+				|| ($CONFIG{-mode} == 1) && $days{'w'} < 0))
+	{	$mode = 'w';	}		 	#expiration
+	else
+	{	$mode = undef;	}			#no mode
+
+	#not in any state
+	next if(!defined($mode));
+	next if($CONFIG{-mode} == 0 && $days{$mode} < 0);
+
+	#make %ustate%
+	$UENV{'ustate'} .= 'N' if(!defined($UENV{'ustate'}));
+
+	#inform
+	verbose(1, "[line $linenum] [user $udata[0]] `".
+				${{'w'=>'Expiration',
+				   'e'=>'Inactivation',
+				   'd'=>'Date Expiration'}}{$mode}."' mode, taking actions...");
+
+	#test if we realy should send email
+	my $send_pattern = $CONFIG{$mode."_days"};
+	if($CONFIG{-mode} == 0
+		&& defined($days{$mode}) && defined($send_pattern) && !($send_pattern eq '*') 
+			&& !match_day($send_pattern,$days{$mode}))
+	{	verbose(1, "[line $linenum] [user $udata[0]] mail will be not sent today");
+		next;	}
+
+	#get domain name from email address
+	if($udata[C_EMAIL] =~ /^\S+\@(\S+)$/o)
+		{	$UENV{"domain"}	= $1;	}
+	else	{	$UENV{"domain"}	= $CONFIG{-domain};	}
+
+	#do it
+	setup_vars();
+	if($CONFIG{-mode} == 0)		#mail send
+	{	next if(defined($udata[C_NOSEND]) && $udata[C_NOSEND] == 1);
+
+		my ($subj, $body) = get_mail_data($mode);
+
+		#test mail data errors
+		if(!defined($subj))
+		{	next	if($body = 0);
+			exit(1)	if($body = 1);	}
+		#error something failed
+		exit(1)	if(!cmd_sendmail($udata[C_EMAIL], $subj, $body));
+	}
+	elsif($CONFIG{-mode} == 1)	#list users
+	{	my $msg	= $CONFIG{'msg_'.$mode.'_'.(($days{$mode} >= 0) ? 'in' : 'done')};
+
+		$msg	= eval_vars($msg, %UENV, %ENV);
+		syswrite(STDOUT, $msg."\n");	}
+	else				#unknown mode
+	{	die("[programming error]");	}
+
+	#clear variables
+	undef $mode;
+	undef @udata;
+}
+my $x=<USERS>;
+close(USERS) ||
+	exit(_error("$SCRIPT: "._("data module returned error retval")." ($?)", 1));
+verbose(1, "Finished.");
+
+__END__
+
+=head1 NAME
+
+passwd_exp - password/account expiration checking tool
+
+=head1 SYNOPSIS
+
+passwd_exp [options] [USERNAME]
+
+
+=head1 DESCRIPTION
+
+B<passwd_exp> warns users of password/account expiration via email. It extends similar function of login process, 
+that prints such a messages at login time, but many users do not login for a long (long) time and only 
+download/forward their email, so they have absolutely no chance to find out what's happening with their account.
+
+This script will warn them (via email), and save you from request to re-enable users accounts that has 
+been 'magicaly' disabled by that BAD BAD man called Linux or whatever :) (And be sure there will be some if you have 
+system with many users forcing them to change their passwords to get just a little more security).
+
+Extra feature of this script is listing of expired user accounts so you will have some more info about your system.
+
+
+=head1 OPTIONS
+
+=over 4
+
+=item	-c FILE			config file
+
+=item	-u USERNAME		username to check
+
+=item	-l				list users, do not send mails
+
+=item	-f				override `run once per day' restriction
+
+=item	-t				test mode, print generated emails instead of sending them
+
+=item	-T				test configuration file validity
+
+=item	-v				verbose mode, more times for more verbosity
+
+=item	-d var=value		define variable for message enviroment
+
+=item	-m MODULE			module to use (can be module name or program path)
+
+=item	-mi				print module informations
+
+=item	-mo option=value	set module option (argument)
+
+=item	-s  option=value	override config file option
+
+=back
+
+=head1 FILES
+
+=over 4
+
+=item	/etc/passwd_exp/passwd_exp.conf			- config file
+
+=item	/etc/passwd_exp/mail				- mail files search dir
+
+=item	/usr/share/passwd_exp/mail			- mail files search dir
+
+=item	/usr/share/passwd_exp/mod			- input modules dir
+
+=item	/etc/cron.daily/passwd_exp.cron			- daily cron check script
+
+=item	/etc/cron.weekly/passwd_exp-admin.cron		- admin weekly cron check script
+
+=head1 BUGS
+
+None found (yet).
+
+=head1 SEE ALSO
+
+=over 4
+
+=item	B<Text-Tokenizer>
+
+perl module for fast text analyzation at B<http://devel.dob.sk/Text-Tokenizer>
+
+=item	B<pfadmin>
+
+postfix virtual email accounts managment tools (for vmail.pfadmin data module)
+B<http://devel.dob.sk/pfadmin>
+
+=back
+
+=head1 AUTHOR
+
+Samuel Behan, E<lt>samkob(at)gmail(dot)comE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2003-2005 by Samuel Behan
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms of GNU/GPL v2. 
+
+=cut
+
+
+#EOF (c) by UN*X 1970-$EOD (End of Days) [ EOD (c) by God ]

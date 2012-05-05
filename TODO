@@ -1,0 +1,15 @@
+TODO for 1.3.x:
+
+	- user 2 mail mapping modules
+
+----------
+- LEGEND -
+----------
+	- 	todo
+	/	partialy completed, working on...
+	*	done
+	!	MUST implement as soon as possible (breaks other things)
+	?	should be implemented or no ??
+	I	information
+	P	postponed (for other releases)
+	N	decided not to implement (for now)

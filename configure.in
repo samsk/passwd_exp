@@ -1,58 +1,230 @@
 dnl -*- sh -*-
-dnl Config script for passwd_exp by Sam <behan@frida.fri.utc.sk>
+dnl Config script for passwd_exp by Sam <samkob@gmail.com>
 dnl
 
 #initalize
 AC_INIT()
+PERL_REQUIRE=
+PROGNAME="passwd_exp"
+VERSION="1.2.11"
+PACKAGE=$PROGNAME
 
 #defaults
-AC_PREFIX_DEFAULT(/)
+AC_PREFIX_DEFAULT(/usr/local)
+AC_SUBST(PERL_REQUIRE)
+AC_SUBST(PROGNAME)
+AC_SUBST(VERSION)
+AC_SUBST(PACKAGE)
+
+#configs
+
+
+
+#extra vars
+datadir="${datadir}/passwd_exp"
+pw_moddir="${datadir}/mod"
+AC_SUBST(pw_moddir)
+
+#install progs
+AC_PROG_INSTALL()
 
 #check perl existence
 AC_PATH_PROG(PERL, perl)
-if ! test $ac_cv_path_PERL;
+if test "${PERL}x" = "x";
    then AC_ERROR(missing perl interpreter !!!);
 fi
 
-#check for RcReader package
-if ! perl <<__EOF__ &>/dev/null
+AC_MSG_CHECKING(for perl version)
+PERL_v=`perl -v | grep 'This is perl' | cut -d ' ' -f 4,7 2>/dev/null`
+if test "${PERL_v}x" != "x";
+   then AC_MSG_RESULT($PERL_v);
+   else AC_MSG_RESULT(unknown);
+fi
+AC_SUBST(PERL_v)
 
-use RcReader;
+#check for tokenizer packager
+AC_MSG_CHECKING(for CPAN module)
+if $PERL <<__EOF__ 2>/dev/null
+
+use CPAN;
 
 __EOF__
-	then AC_ERROR(missing 'RcReader.pm' perl package !!!
-	See README file, section ABOUT->PERL PACKAGES...);
+  then AC_MSG_RESULT(present);
+       HAVE_CPAN=1;
+  else AC_MSG_RESULT(not found);
+       HAVE_CPAN=;
 fi
+AC_SUBST(HAVE_CPAN)
 
-#check for spent packager
-if ! perl <<__EOF__ &>/dev/null
+#check for tokenizer packager
+AC_MSG_CHECKING(for Text::Tokenizer module)
+if $PERL <<__EOF__ 2>/dev/null
 
-use spent;
+use Text::Tokenizer;
 
 __EOF__
-	then AC_ERROR(missing 'spent' perl package !!!
-	See README file, section ABOUT->PERL PACKAGES...);
+  then AC_MSG_RESULT(present);
+  else if test "${HAVE_CPAN}x" != "x";
+          then  AC_MSG_RESULT(will try to install from CPAN);
+		PERL_REQUIRE="$PERL_REQUIRE Text::Tokenizer";
+	  else  AC_MSG_RESULT(not found);
+		AC_ERROR(You need Text::Tokenizer perl module to install this package);
+		exit 1;
+       fi;
 fi
 
-#check for support e-mail programs
-AC_PATH_PROG(SENDMAIL, sendmail, /usr/sbin/sendmail, 
-		$PATH:/sbin:/usr/sbin:/usr/local/sbin)
-AC_PATH_PROG(MAILX, mail, /bin/mail, $PATH)
-if ! test $ac_cv_path_SENDMAIL && ! test $ac_cv_path_MAILX;
-   then sleep 1
-        AC_ERROR(no mail transport agent found !!!);
+#check for locale
+AC_ARG_ENABLE(locale,
+	[  --disable-locale        disable locale support],
+	[ cf_disable_locale=$enableval ])
+HAVE_LOCALE=
+if test "${cf_disable_locale}x" = "x";
+then
+AC_MSG_CHECKING(for Locale::gettext module)
+if $PERL <<__EOF__ 2>/dev/null
+
+use Locale::gettext;
+
+__EOF__
+	then AC_MSG_RESULT(present);
+	     HAVE_LOCALE='\1';
+	else AC_MSG_RESULT(missing);
+	     HAVE_LOCALE=;
 fi
+fi
+AC_SUBST(HAVE_LOCALE)
+
+#check if mail enabled
+AC_MSG_CHECKING([if mail sending is enabled])
+cf_enable_mail="yes"
+AC_ARG_ENABLE(mail,
+	[  --disable-mail          disable mail sending],
+	[ cf_enable_mail=$enableval ])
+AC_MSG_RESULT($cf_enable_mail)
+cf_report_mailerr="yes"
+AC_ARG_ENABLE(nomail-errors,
+	[  --disable-nomail-errors disable reporting of missing mail programs],
+	[ cf_report_mailerr=$enableval ])
+
+#check for sendmail
+AC_MSG_CHECKING([for sendmail path])
+cf_with_sendmail=""
+AC_ARG_WITH(sendmail,
+	[  --with-sendmail=PATH    path to sendmail binary],
+	[ cf_with_sendmail="$withval" ])
+AC_MSG_RESULT($cf_with_sendmail)
+if test "${cf_with_sendmail}x" = "x";
+	then	AC_PATH_PROG(SENDMAIL, sendmail, /usr/sbin/sendmail, 
+			$PATH:/sbin:/usr/sbin:/usr/local/sbin)
+	else	SENDMAIL="$cf_with_sendmail";
+fi
+
+#check for mail/mailx
+AC_MSG_CHECKING([for mail/mailx path])
+cf_with_mailx=""
+AC_ARG_WITH(mail,
+	[  --with-mail=PATH        path to mail/mailx binary],
+	[ cf_with_mailx="$withval" ])
+AC_MSG_RESULT($cf_with_mailx)
+if test "${cf_with_mailx}x" = "x";
+	then	AC_PATH_PROG(MAILX, mail, /bin/mail, $PATH)
+		if test "${MAILX}x" = "x";
+			then AC_PATH_PROG(MAILX, mail, /bin/mailx, $PATH)
+		fi
+	else	MAILX="$cf_with_mailx"
+fi
+
+#report error
+if test "${SENDMAIL}x" = "x" && test "${MAILX}x" = "x";
+   then 
+        msg="no mail sending tools found"
+	if test "$cf_enable_mail" = "no" || test "$cf_report_mailerr" = "no";
+		then 	AC_MSG_WARN([ $msg, ignoring...]);
+		else	AC_ERROR([ $msg, exiting... ]);
+			exit 1;
+	fi
+	unset msg
+fi
+
+#fix for missing mailx
+if test "{$MAILX}x" = "x";
+	then MAILX=/bin/mail;
+fi
+
 #check for sendmail
 HAVE_SENDMAIL=1
-if ! test $ac_cv_path_SENDMAIL;
+if test "${SENDMAIL}x" = "x";
    then HAVE_SENDMAIL=0;
 fi
 AC_SUBST(HAVE_SENDMAIL)
 
+#checking for sed
+AC_PATH_PROG(SED, sed, /bin/sed, $PATH)
+AC_MSG_CHECKING(for sed version)
+SED_v=`sed --version | grep 'sed version' | cut -d ' ' -f 1,4 2>/dev/null`
+if test "${SED_v}x" != "x";
+   then AC_MSG_RESULT($SED_v);
+   else AC_MSG_RESULT(unknown);
+fi
+AC_SUBST(SED_v)
+
+#check for crondir
+AC_MSG_CHECKING(for crontab dirs (cron.*))
+crondirs="${sysconfdir} /etc"
+crondir=
+for dir in $crondirs;
+	do if test -d "$dir/cron.daily";
+		then crondir=$dir
+		     AC_MSG_RESULT($crondir);
+		     break;
+	   fi;
+done
+if test "${crondir}x" = "x";
+	then AC_MSG_RESULT(not found);
+fi
+AC_SUBST(crondir)
+
+DB_MODULE=
+
+#check for shadow
+AC_MSG_CHECKING(for shadow)
+t_shadow_file="/etc/shadow"
+if test -f "$t_shadow_file";
+   then DB_MODULE='shadow.linux';
+	AC_MSG_RESULT(found);
+   else AC_MSG_RESULT(not found);
+fi
+#check for bsd
+AC_MSG_CHECKING(for BSD system)
+if uname -s | grep BSD >/dev/null;
+   then DB_MODULE='passwd.bsd';
+	AC_MSG_RESULT(found);
+   else AC_MSG_RESULT(not found);
+fi
+AC_SUBST(DB_MODULE)
+
+#check for previous version < 0.9.x
+#FIXME: dummy check
+AC_MSG_CHECKING(for old passwd_exp 0.x)
+HAVE_OLD_PEX=
+sysconfdirs="${sysconfdir} /etc /usr/local/etc"
+oldpex=
+for dir in $sysconfdirs;
+	do if test -r "$dir/passwd_exp.conf";
+		then oldpex=$dir
+		     AC_MSG_RESULT(found);
+		     break;
+	   fi;
+done
+if test "${oldpex}x" = "x";
+	then AC_MSG_RESULT(not found);
+fi
+AC_SUBST(HAVE_OLD_PEX)
+AC_SUBST(oldpex)
+
+#configured flag
+AC_SUBST(NOT_CONFIGURED)
+
 #end
-AC_OUTPUT( passwd_exp.conf passwd_exp.cron passwd_exp Makefile)
-
-#chown files
-chmod a+x passwd_exp passwd_exp.cron
-
-
+AC_OUTPUT(confvars.map Makefile)
+#EOF

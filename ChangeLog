@@ -1,10 +1,410 @@
-2001-03-11  Samuel Behan <behan@frida.fri.utc.sk>
+2009-10-03  Sam <samkob(at)gmail.com>
+
+	* version 1.2.11
+	* little fix to allow %user% variable in mailer configuration (on behalf of R. Woolard)
+
+2009-07-24  Sam <samkob(at)gmail.com>
+
+	* version 1.2.10
+	* fixed non-working configuration of used module
+
+2005-11-06  Sam <samkob(at)gmail.com>
+
+	* version 1.2.9
+	* removed deprecated use of -U parameter for sendmail, when sending mail 
+		directly via MTA (bug reported by Bill Tangren)
+	* some fixes to newest autoconf
+
+2005-11-21  Sam <samkob(at)gmail.com>
+
+	* version 1.2.8
+	* some package files cleanups and updates
+
+2005-11-16  Sam <samkob(at)gmail.com>
+
+	* version 1.2.8 rc1
+	* added configurable restriction on email send days. Mails doesn't
+		needs to be send every day from now (idea by Hendrik Ernst).
+
+2005-11-11  Sam <samkob(at)gmail.com>
+
+	* version 1.2.7 rc2
+	* module shadow.linux:
+		- fixed getent call (thanks to Patrick Lammers)
+
+2005-11-10  Sam <samkob(at)gmail.com>
+
+	* version 1.2.7 rc1
+	* updated documentation README file
+	* option 'warn expired' was not taked in account, fixed and
+		set on defaultly
+	* fixed inactivation warnings, expiration took precedence over
+		inactivation (we already fixed this bug once ;)
+		(reported by Patrick Lammers)
+	* added some better information about account expiration stages
+		to README file.
+	* module shadow.linux:
+		- added support for fetching shadow database via getent command
+		  This way, we can work on most LDAP/NIS based systems.
+
+2005-09-11  Sam <samkob(at)gmail.com>
+
+	* version 1.2.6 rc1
+	* updated documentation README file
+	* updated man manual
+
+2005-09-10  Sam <samkob(at)gmail.com>
+
+	* version 1.2.6 beta2
+	* intensive testing
+
+	* version 1.2.6 beta1
+	* added complete BSD module reader with use of login.conf
+	* now using specialized shell file reader
+	* fixed some passwd format issues
+	* GPLv2 license only from now, no later versions
+	* simplified install-trans-sh script
+	* various fixes to existing modules
+	* optimized use of constants (they should be now inlined be perl)
+	* perl locale support can be explicitly disabled by compilation
+	* files can be used for mail subject/body definition
+
+2005-01-26  Sam <samkob(at)gmail.com>
+
+	* releasing version 1.2.5
+	* fixed problem with expired with user listing (bug reported by Dumitru Negara)
+	* inactived accounts reporting was not computed properly
+
+2005-01-26  Sam <samkob(at)gmail.com>
+
+	* releasing version 1.2.4
+	* while fixing previous bug with duplicate mail headers i've made another bug - so now
+		i'm fixing it (thanks goes to Dumitru Negara again)
+
+2005-01-25  Sam <samkob(at)gmail.com>
+
+	* releasing version 1.2.3
+	* fixed installation bug - when compiling under non-suid user, database module
+		was not autoconfigured
+	* fixed bug when adding duplicate mail headers when sending emails (reported by Dumitru Negara)
+
+2005-01-25  Sam <samkob(at)gmail.com>
+
+	* releasing version 1.2.2
+	* various fixes
+
+2005-01-24  Sam <samkob(at)gmail.com>
+
+	* version 1.2.1r9
+	* fixing fixing fixing :)
+
+2005-01-12  Sam <samkob(at)gmail.com>
+
+	* version 1.2.1r6
+	* pro Solaris fixes (well i'm replacing extended functions of GNU tools with
+		combination of standard tools)
+
+2005-01-12  Sam <samkob(at)gmail.com>
+
+	* version 1.2.1r5
+	* pro Solaris fixes
+
+2005-01-11  Sam <samkob(at)gmail.com>
+
+	* version 1.2.1r4
+	* version 1.2.1r3
+	* pro Solaris fixes in Makefile & install-trans-sh (bug reported by Daniel G. Dumont)
+
+2005-01-11  Sam <samkob(at)gmail.com>
+
+	* version 1.2.1r2
+	* pro Solaris fixes in Makefile (bug reported by Daniel G. Dumont)
+
+2005-01-10  Sam <samkob(at)gmail.com>
+
+	* version 1.2.1r1
+	* again fixes to make installation work on Solaris (bug reported by Daniel G. Dumont)
+
+2005-01-07  Sam <samkob(at)gmail.com>
+
+	* version 1.2.1
+	* configure.in script rewrited a little to make it work on Solaris (bug reported
+		by Daniel G. Dumont)
+
+2004-04-27  Sam <samkob(at)gmail.com>
+
+	* version 1.2.0
+	* fixed several errors in installation script (well it seems to be more buggy, than whole
+		app, maybe i should use automake :)
+	* from now installing cron script into share dir and making symbolic links only
+	* modules are now installed into share dir (dir ....etc/mod is obsoleted and can be removed)
+	* documentation updated
+
+2004-04-22  Sam <samkob(at)gmail.com>
+
+	* version 1.1.2 (test release)
+	* added some important functions to ease bug reporting & finding
+
+2004-04-20  Sam <samkob(at)gmail.com>
+
+	* version 1.1.1 (bugfix)
+	* install-trans-sh:
+		- fixed problem in transformation script, expresion could 
+			not be properly parsed with older sed versions
+			(bug reported on Debian 3.0 - thanks Brett)
+		- made transformation error to produce fatal error
+
+2004-04-16  Sam <samkob(at)gmail.com>
+
+	* version 1.1.0
+	* Makefile:
+		- fixed automatical reconfiguration on make install
+	* config file doesn't gets overwritten on update
+	* passwd_exp-admin.cron:
+		- modified generated reports form
+		- fixed sending reports if nothing to report
+
+2004-04-15  Sam <samkob(at)gmail.com>
+
+	* version 1.0.4 (preview only)
+	* passwd_exp:
+		- added -w command line for overriding warn days from command line
+		- added '-ws' for warn days increment
+
+2004-04-14  Sam <samkob(at)gmail.com>
+
+	* passwd_exp:
+		- default config file warn days changed to 36
+
+	* passwd_exp.cron:
+		- made some (portability) fixes
+
+	* passwd_exp-admin.cron:
+		- added weekly expiration status report script for admins
+
+2004-04-14  Sam <samkob(at)gmail.com>
+
+	* version 1.0.3
+	* Makefile:
+		- added auto directory creation for instalation process
+		- fixed problems in perl-module-auto-instalation routines
+		- now checking for working CPAN if want to perform auto-install
+
+2004-03-22  Sam <samkob(at)gmail.com>
+
+	* Makefile:
+		- fixed install-trans-sh call to prevent possible problemos
+
+2004-03-19  Sam <samkob(at)gmail.com>
+
+	* fixed little parsing bug in ./install-trans-sh
+	* required perl modules are automaticaly installed if needed (via CPAN) :))
+	* releasing as version 1.0.2
+
+2004-03-15  Sam <samkob(at)gmail.com>
+
+	* releasing as version 1.0.1
+
+2004-03-13  Sam <samkob(at)gmail.com>
+
+	* configure.in:
+		- Locale module now detected on it's real presence
+		- optimized & reorganized some checks
+	* changed meaning of `%userdata%' array to reference _only_ special
+		data from data module (+ introduced alias `%udata%')
+	* MODULES:
+		- changed data modules input format handling. Special user's data
+			are now separated from system data by field containing '*'
+		- record separator `:' can now be escaped :)
+
+2004-03-10  Sam <samkob(at)gmail.com>
+
+	* found little bug in dist tarball creation, i've used bzip2 for compression
+		but added .gz extension (thanks Jason Martin for noticing me)
+
+2004-03-10  Sam <samkob(at)gmail.com>
+
+	* made perl Locale module optional only (for machines without locale support and
+		for support of older perl)
+	* released stable version 1.0.0
+
+2004-03-03  Sam <samkob(at)gmail.com>
+
+	* DAMN! - newer trust your own code, `make disttar'
+		forgots packaging some very very important files !!!
+	* correcting MANIFEST file
+	* fixed `make tardist' to use cpio instead of dummy cp
+	* config file gets auto-configured now
+	* previous version of config file gets auto-used if found, but with
+		some restrictions
+	* now doing automatical backup of config file
+	* fixed missing lock file bug
+	* fixed little bug with missing config file
+	* add siple `make uninstall'
+	* install process completly created (& tested :)
+	* releasing 1.0.0-rc5 as bugfix of instalation
+	  - i realy apologize for previous version, instalation was broken
+
+2004-03-02  Sam <samkob(at)gmail.com>
+
+	* public release of version 1.0.0-rc4
+
+2004-02-23  Sam <samkob(at)gmail.com>
+
+	* passwd_exp:
+	  - performing extensive testing
+	  - some bugfixes
+	  - trying to find some good instalation way
+	  - version 1.0.0-rc4
+
+2004-01-25  Sam <samkob(at)gmail.com>
+
+	* GOD save the backups :)
+	  - i've removed script while testing instalation, hopefully
+		this was a rc and i've got a backup of it :))
+
+2004-01-24  Sam <samkob(at)gmail.com>
+
+	* passwd_exp:
+	  - changing version to 0.9.8 release candidate 3
+	  - completing documentation
+	  - making 0.9.8-rc3 a stable pre-release version 1.0.0-rc1
+
+2004-01-18  Sam <samkob(at)gmail.com>
+
+	* finished shadow.linux module
+	* passwd_exp:
+	  - added module option directive
+	* found BUG - account expiration takes priority over password
+		expiration. fixed.
+	* added vars '%arch%', '%host_arch%'
+	* decision routines optimalized
+	* completed message enviroment
+	* added verbosity messages (now leveled verbosity avaible)
+	* added more selection possibilities to shadow.linux module
+	* added module listing
+
+2004-01-14  Sam <samkob(at)gmail.com>
+
+	* finalized check routines
+
+2004-01-14  Sam <samkob(at)gmail.com>
+
+	* eval_vars()
+	  - now arrays can be evaluted ie. '%test[0]%'
+	* added array vars '%data[]%', '%userdata[]%' for the module output
+		data fetching
+	* found BUG when rewriting expiration check code (account expiration
+		mode will never get reached if not also in password
+		expiration :)
+	* finalizing check routines
+
+2004-01-13  Sam <samkob(at)gmail.com>
+
+	* cmd_check_lock()
+	  - new routine for lock time checking
+	  - lock time format change
+	  - lock increased to 23 hours
+
+	* added '%utime%', '%email%', '%mail_addr%', '%email_addr'
+		 variables
+	* optimalized message enviroment variables creation
+	* using Getopt::Long as command line arguments parser
+	* added variable definition via command line
+	* added configuration change via command line
+	* passwd_exp.conf:
+	  - obsoleted no check & nowarning directives
+
+2004-01-12  Sam <samkob(at)gmail.com>
+
+	* cmd_sendmail()
+	  - rewrite of routine sendmail()
+	  - now more flexible (accepts user defined mail headers - just for fun)
+	  - less write() calls to pipe needed (max. 3)
+
+	* added '%fullname%', '%home%', '%today%', '%ltoday%', '%now%',
+			'%lnow%' variables
+
+	* created aliases referencies
+
+2004-01-11  Sam <samkob(at)gmail.com>
+
+	* cmd_load_cfg()
+	  - fixed some bugs in parsing
+	  - got 100% compatibility with previous reader (but we are many times
+		faster)
+	  - replaced expensive '.*' matching with easier ones (this can slightly
+		break backward compatibilty if someone used some ugly input
+		values for messages internationalizations or variables
+		definitions
+	* passwd_exp.conf:
+	  - added mail-from directive
+	  - added user definable mail headers 
+	  - added module directive
+	* eval_vars()
+	  - now variables aliases are a real reference to variable
+		and variable containing same value (mem save)
+
+2004-01-08  Sam <samkob(at)gmail.com>
+
+	* cmd_load_cfg()
+	  - using Text::Tokenizer for parsing config file
+	  - configuration map for config directive matching (now we compile
+		regexp only one time)
+
+2004-01-05  Sam <samkob(at)gmail.com>
+
+	* passwd_exp:
+	  - forking new devel version 0.9.x as a (2nd) complete
+		rewrite of passwd_exp to get in new features
+		and to be more faster (i do skip devel version 0.7.x
+		because of the big change in the code)
+
+2001-08-23  Sam <samkob(at)gmail.com>
+
+	* passwd_exp 0.6.3 (release):
+	  - version 0.6.3b3 released as official version
+	  - added litle howto about shadow file in to the README file
+
+2001-08-22  Sam <samkob(at)gmail.com>
+
+	* passwd_exp 0.6.3b2 (beta only):
+	  - modified variable names for date expired section
+        * passwd_exp 0.6.3b3 (beta only):
+	  - fixed account date expiration bug
+
+2001-08-19  Sam <samkob(at)gmail.com>
+
+	* passwd_exp 0.6.3b (beta only):
+	  - added account expiration section
+	  - updated readme
+
+2001-08-18  Sam <samkob(at)gmail.com>
+
+	* passwd_exp 0.6.2 (released):
+	  - fixed little problem with handling date expired user
+	    (i would like to apologize it took so long ;-)
+	  - received some good suggestions, see TODO
+
+2001-05-14  Sam <samkob(at)gmail.com>
+
+	* passwd_exp 0.6.1b:
+	  - passwd_exp will now die returning error message
+	    if body or subject of the mail is empty...
+
+2001-01-05  Sam <samkob(at)gmail.com>
+
+	* passwd_exp 0.6.0:
+	  - program 'admin' messages are configurable from config file
+	  - `-u' switch doesnt worked, fixed
+
+2001-03-11  Sam <samkob(at)gmail.com>
 
 	* passwd_exp 0.5.9 (pre-release):
 	  - new configuration via autoconf
 	  - README file completed
 
-2001-03-11  Samuel Behan <behan@frida.fri.utc.sk>
+2001-03-11  Sam <samkob(at)gmail.com>
 
 	* passwd_exp 0.5.8 (devel):
 	  - completly rewritten, new features added
@@ -15,16 +415,17 @@
 	  - i've learned regexp a bit - now using new faster
 	  	regexp expresion
 
-2001-03-11  Samuel Behan <behan@frida.fri.utc.sk>
+2001-03-11  Sam <samkob(at)gmail.com>
 
 	* passwd_exp 0.5.0 (devel - complete rewrite):
 	  - this is first(?) complete rewrite of this program
-	  - there wan an idea to do this program in python, but
-	    there are several reasons why to dont do it. The 
+	  - there wan an idea to do this program in python (greeting mike),
+	    but there are several reasons, why to don't do it. The 
 	    first is that perl can found even on the old VMS machines
-	    and the second is that python is too organized ;-)
-	
-2000-09-30  Samuel Behan <behan@frida.fri.utc.sk>
+	    and the second is that python looks too clean leanguage comparing
+	    to perl.	
+
+2000-09-30  Sam <samkob(at)gmail.com>
 
 	* passwd_exp 0.4.6
 	* passwd_exp (bug):
@@ -34,16 +435,16 @@
 	    CAN NOT BE FIXED - added %hostname% variable instead
 	* passwd_exp README file:
 	  - using correct syntax and grammar from brain->english
-	    dictionary ;-)
+	    dictionary (however you might find it is a little bit small);-)
 
-2000-09-25  Samuel Behan <behan@frida.fri.utc.sk>
+2000-09-25  Sam <samkob(at)gmail.com>
 
 	* passwd_exp:
 	  - removed look behind assertions in regular expresions
 	    (many version of perl do not support them)
 	  - some reducancy code was removed
 
-2000-09-22  Samuel Behan <behan@frida.fri.utc.sk>
+2000-09-22  Sam <samkob(at)gmail.com>
 
 	* releasing passwd_exp 0.4.5
 	* passwd_exp:
@@ -53,12 +454,12 @@
 	     absolute
 	   - fixed last run checking function
 
-2000-09-18  Samuel Behan <behan@frida.fri.utc.sk>
+2000-09-18  Sam <samkob(at)gmail.com>
 
 	* passwd_exp:
-	   - list mode views more...
-	  
-2000-09-13  Samuel Behan <behan@frida.fri.utc.sk>
+	   - list mode views more...	  
+
+2000-09-13 Sam <samkob(at)gmail.com>
 
 	* passwd_exp version 0.4 released
 	* README file created: lets have a party, the worst
@@ -67,7 +468,7 @@
 	  compatible with similar messages generated by pam_pwdb
 	  at login time ;-)
 
-2000-09-11  Samuel Behan <behan@frida.fri.utc.sk>
+2000-09-11  Sam <samkob(at)gmail.com>
 
 	* passwd_exp version 0.3 (devel only):
 	   - date expiration check rewriten
@@ -75,7 +476,7 @@
            - lock file (checks allowed only once a day)
 	   - new exported variables
 
-2000-09-09  Samuel Behan <behan@frida.fri.utc.sk>
+2000-09-09  Sam <samkob(at)gmail.com>
 	
 	* passwd_exp version 0.2 released:
 	   - admin mode default warning days
@@ -85,7 +486,7 @@
 	       installed to /etc/cron.daily, sending error
 	       email to root if something goes wrong
 
-2000-09-07  Samuel Behan <behan@frida.fri.utc.sk>
+2000-09-07  Sam <samkob(at)gmail.com>
 
 	* passwd_exp:
 	   - configuration from file
@@ -98,7 +499,7 @@
 	       or subject and will be replaced by their 'real' value.
 	       Enviroment variables are also avaible.
 
-2000-09-06  Samuel Behan <behan@frida.fri.utc.sk>
+2000-09-06  Sam <samkob(at)gmail.com>
 
 	* new idea, new program... ;-)
 	* passwd_exp version 0.1 (devel only):

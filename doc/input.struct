@@ -1,0 +1,18 @@
+##############################
+# passwd_exp input structure #
+##############################
+
+Fields in Input Order separated by `:'
+
+	u_name			- user name
+	u_fullname		- user full name
+	u_email			- user email
+	t_expire_date		- expire days
+	t_disable_date		- date of dissable in days
+	d_warn_days		- warning days
+	d_inactive_days		- inactive days
+	s_nosend		- user nosend bit
+	*			- special user vars separator char
+
+
+NOTE: One input structure per line is expected !

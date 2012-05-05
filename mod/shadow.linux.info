@@ -1,0 +1,34 @@
+User list from GNU/Linux shadow file.
+
+--- MORE INFO ---
+
+-----------------
+SHADOW DATABASE -
+-----------------
+	There were some questions about some shadow file internals, so
+  here something about it (or try `man shadow'):
+  Shadow file records looks like:
+name:password:change_last:change_may:change_must:change_warn:inactive_max:expire_date
+  
+  name		- name
+  password 	- password
+  change_last	- time user last changed his/her password
+  change_may	- minimum time before user can change his/her password
+  change_must	- maximum time user doesn't need to change the password
+		  if he will not change it. It might get locked or account
+		  can get in to the inactivation stage.
+  change_warn	- time before user password expiration, the system will
+		  warn the user to change his/her password
+  inactive_max	- maximum time, account can stay inactive, after user has not
+		  changed his/her password, before it gets locked.
+		  If 0 or not set, account gets never locked.
+  expire_date	- date account will be locked (ie. commercial accounts)
+
+
+-------------------
+  * All times are in the form of the days since the Epoch (little info:
+	no warning software takes care about the leap years !!!
+	This can be a problem in some hundreds of year when leap years day
+	problem will be significantly visible :)))
+
+	I call this `LINUX SHADOW LEAP YEARS BUG' (SLYB), be AWARE !!! :)

@@ -1,0 +1,114 @@
+#! /usr/bin/perl
+# PROGRAM	: _termcap.reader (passwd_exp 1.x helper)
+# PURPOSE	: termcap style file reader
+# AUTHOR	: Samuel Behan <samkob@gmail.com> (c) 2000-2006
+# HOMEPAGE	: http://devel.dob.sk/passwd_exp
+# LICENSE	: GNU GPL v2, NO WARRANTY VOID (see file LICENSE)
+################################################################################
+#requirements
+use Text::Tokenizer	qw(:all);
+#pragmas
+#use strict;
+use integer;
+use vars qw($VERSION $AUTHOR $AUTHOR_EMAIL $SCRIPT);
+
+#script info
+$AUTHOR		= 'Samuel Behan';
+$AUTHOR_EMAIL	= 'samkob@gmail.com';
+$VERSION	= '0.2.0';
+$SCRIPT		= '_termcap.reader';
+
+#print info
+sub cmd_print_info(;$)
+{	
+	print STDERR <<__EOT__
+usage: $SCRIPT [command] [options] <filename> <key0> <key1> ... <keyN>
+      -- $SCRIPT (passwd_exp helper) $VERSION by $AUTHOR
+[params]
+	filename		file to read
+	key0..keyN		key(s) to return from termcap file
+[command]
+	-info			print module info
+[options]
+	-all			will print all termcap entries
+[RESULT FORMAT]
+  Script prints for every key one line from termcap file, sorted in order
+of key params passed to script. If key has not been found, empty line will
+be returned.
+__EOT__
+;
+	exit(defined($_[0]));
+}
+
+################
+# MAIN PROGRAM #
+################
+my ($file, $show_all, @KEYS, %RESULT, $tok);
+
+#parse command line
+$show_all = 0;
+foreach $cmd (@ARGV)
+{
+	cmd_print_info() if($cmd eq '-info' || $cmd eq '--info' || $cmd eq '-h' ||
+				$cmd eq '-help' || $cmd eq '--help' || $file ne '');
+	$show_all = 1, next if($cmd eq '-all' || $cmd eq '--all');
+	#add search key
+	push(@KEYS, $cmd);
+}
+
+#first param is filename to be read
+$file	= shift(@KEYS);
+
+#check if file is defined
+die("$SCRIPT: missing filename to read, try '-info' param\n")
+	if(!defined($file) || $file eq '');
+
+
+#open termcap file
+warn("$SCRIPT: failed to open file '$file' ($!)\n")
+	if(!open(TERMFILE, $file));
+
+#create tokenizer
+$tok	= tokenizer_new(TERMFILE);
+#tokenizer_options();
+
+#parse
+my ($str, $tok, $lin, $err, $errlin);
+my ($record);
+
+while(1)
+{
+	($str, $tok, $lin, $err, $errlin)	= tokenizer_scan();
+
+	if($tok == TOK_TEXT || $tok == TOK_BLANK)
+	{	$record .= $str;		}
+	elsif($tok == TOK_EOL)
+	{	#ignore empty lines
+		next if($record eq '' || $record =~ /^\s+$/o);
+		#check for escaped line
+		next if($record =~ /\\$/o);
+		#make record
+		$record =~ s/\\\s*//og;
+		$record =~ s/^(.+?):://o;
+		#key it
+		my $key = $1;
+		while($key ne '' && $key =~ s/(.+?)($|\|)//o)
+		{	$RESULT{$1}	= $record;		}
+		$record = undef;
+	}
+	elsif($tok == TOK_EOF)
+	{	last;			}
+}
+
+tokenizer_delete($tok);
+close(TERMFILE);
+
+#print keys
+@KEYS = keys(%RESULT) if($show_all);
+foreach $cmd (@KEYS)
+{
+	print $cmd."::".$RESULT{$cmd}	if(exists($RESULT{$cmd}));
+	print "\n";
+}
+
+#EOF (c) by UN*X 1970-$EOD (End of Days) [ EOD (c) by God ]

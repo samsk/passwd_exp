@@ -1,0 +1,77 @@
+#! /usr/bin/perl
+# PROGRAM	: _shell.reader (passwd_exp 1.x helper)
+# PURPOSE	: shell file reader
+# AUTHOR	: Samuel Behan <samkob@gmail.com> (c) 2000-2006
+# HOMEPAGE	: http://devel.dob.sk/passwd_exp
+# LICENSE	: GNU GPL v2, NO WARRANTY VOID (see file LICENSE)
+################################################################################
+#requirements
+#pragmas
+#use strict;
+use integer;
+use vars qw($VERSION $AUTHOR $AUTHOR_EMAIL $SCRIPT);
+
+#script info
+$AUTHOR		= 'Samuel Behan';
+$AUTHOR_EMAIL	= 'samkob@gmail.com';
+$VERSION	= '0.2.0';
+$SCRIPT		= '_shell.reader';
+
+#print info
+sub cmd_print_info(;$)
+{	
+	print STDERR <<__EOT__
+usage: $SCRIPT [command] [options] <filename> <key0> <key1> ... <keyN>
+      -- $SCRIPT (passwd_exp helper) $VERSION by $AUTHOR
+[params]
+	filename		file to read
+[command]
+	-info			print module info
+[RESULT FORMAT]
+  Script prints shells defined in shell file, one per line.
+__EOT__
+;
+	exit(defined($_[0]));
+}
+
+################
+# MAIN PROGRAM #
+################
+my ($file, $line, @SHELLS);
+
+#parse command line
+foreach $cmd (@ARGV)
+{
+	cmd_print_info() if($cmd eq '-info' || $cmd eq '--info' || $cmd eq '-h' ||
+				$cmd eq '-help' || $cmd eq '--help' || $file ne '');
+	$file = $cmd;
+}
+
+#check if file is defined
+die("$SCRIPT: missing filename to read, try '-info' param\n")
+	if(!defined($file) || $file eq '');
+
+#open file
+die("$SCRIPT: failed to open '$file'\n")
+	if(!open(SHELL, $file));
+
+#read file
+while(defined(($line = <SHELL>)))
+{
+	chomp($line);
+
+	#check for comment and empty lines
+	next if($line =~ /^#/o || $line eq '' || $line =~ /^\s+$/o);
+
+	#add shell
+	push(@SHELLS, $line);
+}
+close(SHELL);
+
+#print resuls
+foreach $cmd (@SHELLS)
+{
+	print $cmd."\n";
+}
+
+#EOF (c) by UN*X 1970-$EOD (End of Days) [ EOD (c) by God ]

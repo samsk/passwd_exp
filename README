@@ -1,142 +1,213 @@
-#!/usr/bin/less
-
+#! /usr/bin/less
 ################################################################################
 
-Program name	: passwd_exp
-Version		: 0.5.9
+Program		: passwd_exp
+Version		: 1.2.11
 Purpose		: Warn of password expiration via email
 		  Check acount expiration status (admin mode)
-License		: GNU GPL v2 or later (see file LICENSE)
-Author		: Samuel Behan <behan@frida.fri.utc.sk> (c) 2000-2001
-Requirements	: perl5.003 + spent.pm and RcReader.pm perl packages, 
-		  mail program (ie. mailx) or MTA (sendmail compatible)
+License		: GNU GPL v2 (see file COPYING)
+Author		: Samuel Behan <samkob(at)gmail.com> (c) 2000-2006
+Requirements	: perl5.005 + Text-Tokenizer perl package,
+		  mail program (ie. mailx) or MTA (sendmail/postfix/...)
 
 ################################################################################
 
-
-ABOUT
------
-	passwd_exp is a perl script that warns of password/account expiration 
-  via email. It extends (and replaces) similar function of login program, 
+---------
+- ABOUT -
+---------
+	passwd_exp is a perl script that warns users of password/account 
+  expiration via email. It extends similar function of login process, 
   that prints such a messages at login time, but many users does not login 
-  for a long (long) time and only download (or forward) their e-mails,
-  so this script will warn them.
-  Script can also list users that account is expiring (admin mode),
-  has been expired but not inactived, bas been expired going to inactivate 
-  and has been inactivated (understood ???).
-  <<PERL PACKAGES>>
-    RcReader.pm - (my) package for reading config file. Can be found
-    		at CPAN or http://frida.fri.utc.sk/~behan/devel/RcReader
-    spent.pm	- (my) package for readin shadow database. Can found at
-    		CPAN or http://frida.fri.utc.sk/~behan/devel/spent
-  <<BUGS && TIPS>>
-     Bugs and tips how to make this script better send please to
-	<behan@frida.fri.utc.sk> and i'll try to help you.
-     I'll be also glad if you'll send my your localized config file, so
-     i can add your localized messages to tarball.
+  for a long (long) time and only download/forward their email, so they
+  have absolutely no chance to find out what's happening with their
+  account.
+  	This script will warn them (via email), and save you from request
+  to re-enable users accounts that has been 'magicaly' disabled by that 
+  BAD BAD man called Linux or whatever :) (And be sure there will be some if
+  you have system with many users forcing them to change their passwords to
+  get just a little more security).
+  	Extra feature of this script is listing of expired user accounts
+  so you will have some more info about your system.
 
-     
-INSTALATION
------------
-	All you need to do is to unpack the program, run the configure
-  program and make
+  ********************************************************************************
+  PLEASE, send me yours data modules/translations so i can add them to the 
+	distribution tarball, and other users can use them without the need to 
+	recreate them.
+					Thanks
+  ********************************************************************************
+
+-----------------
+- BUG REPORTING -
+-----------------
+  Well if you find a bug, and you want report it do this at first.
+
+		$ make bug
+
+	This will generate file BUG.REPORT containing some important informations about
+  system you are building on. Please include this file in the message you send me.
+  Thanks a lot.
+
+---------------
+- INSTALATION -
+---------------
+	For successfull instalation of this package you need to install Text-Tokenizer
+  perl package, that can be found either on CPAN (www.cpan.org) or at my page 
+		http://devel.dob.sk/Text-Tokenizer
+	You can also auto-install them by typing
   
-  $ tar -xzf passwd_exp-xxx.tgz
+  $ make install-mod
+
+  before executing `make install'.
+  Script will try to install required modules via perl CPAN installer. You'll be propably
+  asked for configuring CPAN source, but you can skip this and program defaults will be
+  used.
+
+	Then, all you need to do is to run the configure script program and make:
+  
+  $ tar -xzf passwd_exp-X.X.X.tar.gz
+  $ cd passwd_exp-X.X.X
   $ ./configure
   $ make
-  
-  
-  These files will be installed (default installation)
-  	passwd_exp		-> /sbin/passwd_exp
-	passwd_exp.conf		-> /etc/passwd_exp.conf
-	passwd_exp.cron		-> /etc/cron.daily/passwd_exp.cron
-
-  You can modify install paths, by running configure with parameters
-  to change the paths like --prefix=PATH, --sbindir=PATH...
-  Install path of the passwd_exp.cron is hard set, but if the directory
-  /etc/cron.daily doesn't exists it wont be installed. You have to
-  do care yourself, to run the passwd_exp once a day (not more!)
-  (ie. adding it to cron via crontab -e ).
-  PERL PACKAGES:
-	Perl packages required by this script are also shipped in this
-  tarball. All you need to do is to unpack them and in each directory
-  package dir to run
-  
-  $ perl Makefile.PL
   $ make install
-  
-  And the packages will be automatically added to your perl library.
-  
- 
- 
-COMMAND LINE OPTIONS
---------------------
-	-c file	path to config file (default is /etc/passwd_exp.conf)
-	-u user	check only this user
-	-l	list all expired/inactivated acounts
-	-i	ignore nocheck file
-	-t	test mode, print e-mail(s) to stdout
-	-T	test mode, check config file only
-	-v	verbose mode
-	-V	print version information
-	-h	print this help
+
+  *** INSTALLING CRON FILES ***
+	If installation of cron scripts fails, you should install them manualy either by
+  copying them to crontab dirs or by adding them to crontab (via crontab -e):
+
+	-- CUT
+		5 0 * * *       /usr/local/share/passwd_exp/passwd_exp.cron		#daily check
+		5 0 * * sun     /usr/local/share/passwd_exp/passwd_exp-admin.cron	#weekly check
+	-- CUT
+
+	Just reminding you, that cron scripts resides in /usr/local/share/passwd_exp directory.
+
+  *** WARNING ****
+  Versions > 1.0 are slightly incompatible with the previous one ( < 0.6.4 ). Placement of config file 
+	has changed (now resides in /etc/passwd_exp directory) and also some config file directives 
+	has been obsoleted (they will be ignored).
 
 
-ADMIN MODE
-----------
-	Script provides simple 'admin' mode, when program prints a list 
-  of expired, expiring.. account. In this mode there is defined %ustate%
-  variable, that can contain 4 characters:
-  	'S'		- username is defined in 'nosend' list
-	'C'		- user has 'nocheck' file in his homedir
+------------------------
+- COMMAND LINE OPTIONS -
+------------------------
+
+               	-c FILE			config file
+               	-u USERNAME		username to check
+               	-l			list users, do not send mails
+               	-f			override `run once per day' restriction
+               	-t			test mode, print generated emails instead of sending them
+               	-T			test configuration file validity
+               	-v			verbose mode, more times for more verbosity
+		-w DAYS			override minimum warn days for users
+		-ws DAYS		increment minimum warn days for every user
+               	-d var=value		define variable for message enviroment
+               	-m MODULE		module to use (can be module name or program path)
+               	-mi			print module informations
+               	-mo option=value	set module option (argument)
+               	-s  option=value	override config file option
+
+--------------
+- ADMIN MODE -
+--------------
+	In the admin mode you can get a list of expired, expiring...etc 
+  accounts. Special variable %ustate% is defined in this mode that specifies 
+  user settings/status:
 	'D'		- user is 'date expired'
 	'N'		- normal user (however, you can never be sure - this
-				program isn't psychiatrist ;-)
-  
+				program isn't a psychiatrist ;-)
 
-CONFIG FILE
------------
+  Messages printed in admin mode can be also modified from config file.
+
+
+-----------------------------
+- ACCOUNT EXPIRATION STAGES -
+-----------------------------
+	Little info, about stages that account goes when expiring.
+
+		Expiration	- user password is expiring.
+				  Program generates email using `warn subject/body/file'
+				  values.
+		Expired		- user password expired, ommiting inactivation phase.
+				  User can not login anymore. Program sends no email.
+
+		Inactivation	- user password has expired and account is being
+				  inactivated. This means that user can login, but
+				  he will be imediatelly prompted to change password.
+				  Account goes trough this phase only if inactive days
+				  are set for it, otherwise it gets Expired (see above).
+				  Program generates email using `expired subject/body/file'
+				  values.
+		Inactivated	- user password has expired, and account was automaticaly
+				  inactivated.
+				  User can not login anymore. Program sends no email.
+
+		Date Expiration	- user account is expiring (for example payed account can
+				  have this set).
+				  Program generates mails using `account subject/body/file'
+				  values.
+		Date Expired	- user account has expired (he doesn't pays bills ;).
+				  User can not login anymore. Program sends no email.
+
+
+---------------
+- CONFIG FILE -
+---------------
 	You can customize program behavior by editing configuration
-  file '/etc/passwd_exp.conf' (however this config file can be missing,
-  in such a case script will warn you, but uses it's internal defaults).
-  There is new configuration reader that allows you to use multiline values, 
-  use enviroment variables and backslash-escaped characters, more variables 
-  on one line...
-  NOTE: boolean value means anything from: yes,enable,true,1,ok,allow
-  	to be the value TRUE any other value means FALSE.
+  file '/etc/passwd_exp/passwd_exp.conf'.
+
+  NOTE: boolean value means anything from: yes,enable,true,1,ok,allow,oui,si,ano
+	jo,hej,da to be TRUE any other value means FALSE.
+
   This configuration settings are supported:
+
         var[$name]
   	var[$name][$locale]
 	variable[$name]
 	variable[$name][$locale]
-			You can define your owen variables that will be 
+			You can define your own variables that will be 
 			replaced by their real values when sending e-mail. 
 			You can also this way override any of default
 			variables program defines. In the var values you
-			can use also default variables.
+			can use also any other variable.
 			Example:
 			   const[greeting]	= "Hi %user%"
-			Support LOCALIZATION + VARIABLES.
-			   
+			Supports LOCALIZATION and VARIABLES.
+
 	locale		This version of program supports localization of
 			e-mail messages. By setting this variable you
 			can override your enviroment locale settings. If 
 			no value set or value is "auto" then the $LC_ALL will
 			be used as your current locale. Default is 'auto'.
-			
+
+	module		Module to use to gather user data. This can be a
+			module name (name is executed from restricted PATH 
+			prefering passwd_exp module dir: usualy 
+			/usr/local/share/passwd_exp/mod ) or full path to
+			executable. You can also specify it's arguments
+			here. There is no restriction what can be executed.
+			I.e. You can run simple scripts, that execute multiple
+			modules...
+
+	module opt[$name]
+			Set module option that will passed to executed module
+			as argument.
+
 	direct mta	Boolean. If true script will use your MTA instead
 			of using 'mailer' program. This can speedup a bit
 			the script since it will call the MTA directly 
-			and not 'via' your mail agent.
+			and not 'via' your mail agent. If you are not using
+			mta directly special configurable options can not
+			be used, since they are valid only for sendmail mail
+			via MTA.
 			Default is true.
-			
+
 	mta
 	mail agent	Path to your mail transport agent (sendmail compatible)
 			that will be used (if 'direct mta' true) to send e-mails
 			to users. This options obsoletes 'mailer' directive.
 			Path to program has to be absolute else script will
 			refuse to use it.
-			
+
 	mail
   	mailer
 	mail sender	Path to program that will be used to send emails. 
@@ -144,145 +215,346 @@ CONFIG FILE
 			on the command line and must read the body of
 			the mail from the stdin (like mailx does).
 			Example:
-			  mailer = /bin/mail %recipient% -s %subject%
+			  mailer = /bin/mail '%recipient%' -s '%subject%'
 			String '%recipient%' is replaced by the email
 			recipient and '%subject%' is replaced by the email
 			subject. Be sure it is absolute path, else script
-			will refuse to use it. This has been obsoleted 
-			by 'mta' directive.
-	
+			will refuse to use it. Additionaly %user% variable is
+			also replaced. Other variables are ignored.
+
+	reply-to	Email of the user, that should receive replys from
+			expiration warnings mail. Default is it user running
+			script (root). Script doesn't checks the validity
+			of the value and it passes it in raw form to MTA,
+			that will remove possibly buggy value.
+
+	mail-from	Email of the user, that should script set to the
+			From header of the sended email. Defaults to user
+			running script (root).
+
+	mail header[$name]
+			Add special header to the mail head. Will be printed
+			to mail as `$name: $value' in the header section.
+
 	banner
 	print banner	Boolean. Print program version banner to each 
 			mail sended to user (GNU GPL extension ;-)
-			
-	no warnings
-	ignore users	List of users that should not recieve warning emails,
-			divided by gaps, commas or semicolons. You can use
-			addition concate (.= or += ) operator to add values.
-			Example:
-			  ignore users = root postgres ;informix
-			  ignore users += oracle, mysql
-			  ignore users .= interbase
-	
-	no check
-	ignore file	If filename specified by this option exists in
-			user home dir, user will not be disturbed by
-			warning emails. To disable this set this option
-			no value or uncomment it (see -i program switch).
-	
+			Defalult is true.
+
 	warn days	Digit. This option overrides warning days value 
-			set in the shadow database.
-	
-	date expired
-	warn date expired
-			Boolean. Warn users that have hard set expiration 
-			date oftheir account. This is not enabled
-			by default.
+			get from the user list.
+
+	warn days step	Digit. This option increments warning days value 
+			get from the user list for every user.
+
+	mail days only	List of simple rules to match days, when mails can
+			be sent. This setting is an alias for setting
+			`warn/expired/account days' only setting to the same
+			values.
+			See DAYS MATCHING section.
+
+	wo
+	warn days only	List of simple rules to match days, when mail with
+			warning mails should be sent only.
+			See DAYS MATCHING section.
+			Default is '*' (every day).
 
 	warn subject
 	warn subject[locale]
 	ws
 	ws[locale]	Subject of the email sended to the users that
 			password/account is expiring. Please don't set it 
-			longer than 50 character. There are various variables 
-			recognized in this string (see VARIABLES section 
-			for more informations). Supports LOCALIZATION.
-	
+			longer than 50 character. Can't be epmty.
+			Supports LOCALIZATION and VARIABLES.
+
 	warn body
-	warn body[$locale]
+	warn body[locale]
 	wb
-	wb[$locale]	Body of the email sended to users that password
-			account is expiring. There are various variables 
-			recognized in this string (see VARIABLES section 
-			for more informations). Supports LOCALIZATION.
+	wb[locale]	Body of the email sended to users that password
+			account is expiring. Can't be epmty.
+			Supports LOCALIZATION and VARIABLES.
+
+	warn file
+	warn file[locale]
+	wf
+	wf[locale]	File used for definition of mail subject and body.
+			See MAIL FILE for more informations.
+			Supports LOCALIZATION and VARIABLES.
 
 	warn expired	Boolean. Warn users if their password/account has 
 			been already expired but is not inactived (yet).
-			
+			This is enabled by default.
+
+	eo
+	expired days only
+			List of simple rules to match days, when mail with
+			expired warning should be sent only.
+			See DAYS MATCHING section.
+			Default is '*' (every day).
+
 	expired subject
-	expired subject[$locale]
+	expired subject[locale]
 	es
-	es[$locale]	Subject of the email sended to the users that
+	es[locale]	Subject of the email sended to the users that
 			password/account has expired but is not inactive 
 			(yet). Please don't set it longer than 50 character.
-			There are various variables recognized in this
-			string (see VARIABLES section for more informations).
-			Supports LOCALIZATION.
+			Supports LOCALIZATION and VARIABLES. Can't be epmty.
 
 	expired body
-	expired body[$locale]
+	expired body[locale]
 	eb
-	eb[$locale]	Body of the email sended to the users that password/
+	eb[locale]	Body of the email sended to the users that password/
 			account has expired but is not inactive (yet). 
-			There are various variables recognized in this
-			string (see VARIABLES section for more informations).
-			Supports LOCALIZATION.
+			Supports LOCALIZATION and VARIABLES. Can't be epmty.
 
+	expired file
+	expired file[locale]
+	ef
+	ef[locale]	File used for definition of mail subject and body.
+			See MAIL FILE for more informations.
+			Supports LOCALIZATION and VARIABLES.
 
-LOCALIZATION
-------------
-	This version supports localization of messages sended to users.
-  If you will use '[$locale]' subscription, script will load value of
-  such a subscripted option only if '$locale' matches current locale, else
-  it will ignore it. You can use wildcards (? and *) to match the locale.
+	date expired
+	warn date expired
+			Boolean. Warn users that have hard set expiration 
+			date oftheir account. This is not enabled
+			by default.
+
+	ao
+	account days only
+			List of simple rules to match days, when mail with
+			expired account warning should be sent only.
+			See DAYS MATCHING section.
+			Default is '*' (every day).
+
+	account subject
+	account subject[locale]
+	as
+	as[locale]	Subject of the email sended to the users that
+			account will date expire.
+			Please don't set it longer than 50 character.
+			Supports LOCALIZATION and VARIABLES. Can't be epmty.
+
+	account body
+	account body[locale]
+	ab
+	ab[locale]	Body of the email sended to the users that will
+			date expire.
+			Supports LOCALIZATION and VARIABLES. Can't be epmty.
+
+	account file
+	account file[locale]
+	af
+	af[locale]	File used for definition of mail subject and body.
+			See MAIL FILE for more informations.
+			Supports LOCALIZATION and VARIABLES.
+
+	mexpiring
+	mexpiring[locale]
+	meg
+	meg[locale]	Message printed for expiring account in admin mode.
+			Supports LOCALIZATION and VARIABLES.
+
+	mexpired
+	mexpired[locale]
+	med
+	med[locale]	Message printed for expired account in admin mode.
+			Supports LOCALIZATION and VARIABLES.
+
+	minactiving
+	minactiving[locale]
+	mig
+	mig[locale]	Message printed for inactivating account in admin mode.
+			Supports LOCALIZATION and VARIABLES.
+
+	minactived
+	minactived[locale]
+	mid
+	mid[locale]	Message printed for inactivated account in admin mode.
+			Supports LOCALIZATION and VARIABLES.
+
+	mdinactiving
+	mdinactiving[locale]
+	mdig
+	mdig[locale]	Message printed for date inactivating account in admin mode.
+			Supports LOCALIZATION and VARIABLES.
+
+	mdinactived
+	mdinactived[locale]
+	mdid
+	mdid[locale]	Message printed for date inactivated account in admin mode.
+			Supports LOCALIZATION and VARIABLES.
+
+----------------
+- LOCALIZATION -
+----------------
+	Each sended message can be localized from the config file.
+  If you will use '[locale]' subscription, script will load value of
+  such a subscripted option only if 'locale' matches current locale, else
+  it will ignore it. You can also use wildcards (? and *) to match the locale.
   Example:
   	warn body[de] = warn body[de_AT] = warn body [de_*] = ....
-     will match (any) German locale. You can localize specialy for different
+     will match (any?) German locale. You can localize specialy for different
      countries speaking the same language, you only need to specialize
      locale (see example 'de_AT' will match german language in Austria).
-  PLEASE IF YOU LOCALIZE YOUR CONFIG FILE, PLEASE SEND IT TO ME AND I WILL
-  ADD IT TO THE DISTRIBUTION FOR OTHER USERS.
-  
-  
-VARIABLES
----------
-	In some directives (warning subject, warning body, expired subject, 
-  expired body) you can use internal variables that will be replaced by their 
-  real value, that is specific for each user (NOTE: unknown variables will
-  not be replaced !!!) Except the variables you've defined by 'define[]' 
-  directive program also recognizes these vars:
+  PLEASE IF YOU LOCALIZE YOUR CONFIG FILE, SEND IT TO ME AND I WILL ADD IT TO 
+  THE TARBALL SO OTHER USERS CAN ALSO USE IT. Thanks.
+
+-----------------
+- DAYS MATCHING -
+-----------------
+
+	Using days matching you can define, when some action (like mail sending)
+  should be taken. The pattern is usualy matched to day value represented by
+  number. Multiple patterns can be defined split by gaps.
+  Badly formed patterns will be silently ignored, try enabling verbose mode to
+  se debug messages.
+
+  Patterns:
+
+	*	- match anything
+	*/N	- match every N-th value
+	N-M	- match values from N to M range
+	N-	- match values grater then N
+	N	- match N
+
+  Examples:
+	*/3	- matches every 3rd value (3,6,9,12,...)
+	*/7	- matches every 7th day (7,14,21..)
+	1-4	- matches 1,2,3,4
+	5-	- matcher 5,6,7...infinite
+	3	- matches 3
+
+
+-------------
+- VARIABLES -
+-------------
+	In some directives you can use internal variables that will be replaced 
+  by their real value, that are specific for each user 
+  NOTE: unknown/obsoleted variables will not be replaced !!!) 
+
+  Including variables you've defined in config file via `define[]' directive
+  script also recognizes these (system) vars:
   
     %recipient%, %user%		= recipient username
-    %user_name%, %username%	= recipient full name or username if not set
+    %locale%			= current locale
+    %user_name%, %username%,
+	 %fullname%		= recipient full name or username if not set
+    %email%, %mail_addr%,
+	%email_addr%		= email of the user
+    %data[n]%, 			= raw data from the data module where `n' is
+					number of the record starting from 0
+    %userdata[n]%, %udata[n]%	= special data from data module (see MODULES)
+					that can be used for evaluting own user
+					specific data in messages.
     %expire_in%, %expire_days%,
-    	%edays%			= days account will expire/has been expired
-    %expire_date%, %edate%	= date account will expire/has been expired
+    	%edays%			= days account will/has been expired
+    %expire_date%, %edate%	= date account will/has been expired
     %inactive_in%, %inactive_days%,	
-    	%idays%			= days account will be inactived/has been inactived
-    %inactive_date%, %idate%	= date account will be inactived/has been inactived
-    %home_dir%, %homedir%	= user home directory
+    	%idays%			= days account will be/has been inactived
+    %inactive_date%, %idate%	= date account will be/has been inactived
+    %account_days%, %adays%	= days account will be/has been date inactivated
+    %account_days%, %adate%	= date account will/has been expired
+    %home_dir%, %homedir%	= user home directory (OBSOLETED)
     %deny_check%, %nocheck%,
-    	%ignore_file%		= filename defined by 'no check' directive
-    %date%			= current date ( weekday day name_of_month year)
-    %locale_date%		= curent date as defines your locale
-    %time%			= current time ( hour:minute:second )
-    %locale_time%		= current time as defines yours locale
-    %unix_time%			= seconds since Epoch ( Jan 1. 1970 )
+    	%ignore_file%		= filename defined by 'no check' directive (OBSOLETED)
+    %date%, %today%		= current date ( weekday day name_of_month year)
+    %locale_date%, %ldate%,
+	%ltoday%		= curent date as defines your locale
+    %time%, %now%		= current time ( hour:minute:second )
+    %locale_time%, %ltime%,
+	%lnow%			= current time as defines yours locale
+    %unix_time%, %utime%	= seconds since Epoch ( Jan 1. 1970 )
     %host%, %host_name%,			
     	%hostname%		= current host name (from uname)
     %host_domain%, %domain%	= host domain
     %host_os%, %os%		= your os (from uname, ie. Linux)
     %host_osver%, %osver%	= your os version (from uname, ie. 2.2.17)
-    %host_machine%, %machine%	= your machine (from uname, ie. Pentium 10 == i1086 ;-)
+    %host_machine%, %machine%,
+	%host_arch%, %arch%	= your machine (from uname, ie. Pentium 10 == i1086 ;-)
     %agent%			= passwd_exp alias (Password expiration agent)
     %verion%, %ver%		= passwd_exp version
     %ustate%			= see ADMIN MODE
-    + There are also 'time' variables created on fly, via strftime so you 
-      can using them create your owen time 'definitions'. There are three 
-      groups of these varibles, for:
-      	1. Warning time (references time when user's password will/hasb expired)
-		w, warn, warning
+
+    + There are also `time' variables created on fly, via strftime() so you
+      can using them create your owen time `definitions'. There are four
+      groups of these variables, for:
+      	1. Warning time (references time when user's password will/has expired)
+		objects: w, warn, warning
 	2. Expired time (references time when user's account will be inactivated)
-		e, expire
-	3. Current time (references current time)
-		c, curr, current
+		objects: e, expire
+	3. Date expired time (references time when user's account will be date inactivated)
+		objects: a, account
+	4. Current time (references current time)
+		objects: c, curr, current
       You can dereference their specific time representation using '_','.','->'
       or '=>' operators (it's just like objects ;-) and various conversion
       specifiers that uses strftime (without leading '%').
-      Example:
+      Examples:
       	%warn->A%	- get full name of weekday when user's passwd. expires
 	%expire->Y%	- (full) year when user's account inactivates.
 	%c->c%		- preferred datetime presentation of now()
 	.... (see `man 3 strftime' or `date --help')
-    + it evalues backslash-escaped characters (ie. \t,\n,\r,\a...)
-    + Script also evalutes enviroment variables (ie. $USER, ${USER})
+    + it evalues backslash-escaped characters like perl does including wide
+		char hex char (UNICODE)
+		(ie. \t,\n,\r,\a, \xAB, \x{263a}...etc)
+    + evalutes enviroment variables (ie. $USER, ${USER}...etc)
+
+
+-------------
+- MAIL FILE -
+-------------
+
+	Mail file can be used for defining subject and body of sended mail.
+  Filename can be either absolute or relative. Relative files will be searched
+  in these paths:
+		/etc/passwd_exp/mail
+		${prefix}/share/mail	(prefix is usualy /usr/local)
+  Well. There is a little bonus. You can use any variable in filename defined for
+  mail file. This way you can easily define dynamic filenames based on user name or
+  day of week or anything...
+
+  File format is very easy:
+	- first line defines mail subject
+	- rest of lines will be used for mail body. Dot only line (line with
+      `.' dot only) will also be threated as end of body definition.
+
+
+---------------------------------
+- MODULES (for module creators) -
+---------------------------------
+	passwd_exp now uses external executable module to gather user list
+  data. It should be a standard executable (no mather what is it, bash script
+  C binary or whatever) that prints its record list to STDOUT (one record per
+  line !!!). Distribution modules currently resides in ....share/passwd_exp/mod (or similar)
+  directory (aka $MODULE_DIR).
+
+  Here is record format (fields):
+	u_name			- user name
+	u_fullname		- user full name
+	u_email			- user email (possibly here can be more recipients set)
+	t_expire_date		- expire days
+	t_disable_date		- date of dissable in days
+	d_warn_days		- warning days
+	d_inactive_days		- inactive days
+	s_nosend		- user nosend bit (0/1)
+	*			- special fields separator
+	....			- your's fields
+
+  Fields are separated by `:'. You can add your own fields that will be avaible in
+	messages via `%userdata[n]%' or `%udata[n]%' arrays (where n is it's position
+	from the special separator starting 0). Remember, these fields should be separated
+	from the above ones by field containing '*' char, or you will get in trouble when
+	format changes !!!
+	You can also access all data via `%data[n]' array (almost for debuging purposes).
+  
+   NOTE: modules are searched in restricted PATH with passwd_exp module dir
+	prefered. This also means you can use ie. `cat' as a module for 
+	reading user list data from STDIN :)))
+
+	PATH=$MODULE_DIR:/sbin:/usr/sbin:/usr/local/sbin:/usr/bin:/bin:/usr/local/bin
+		-- path is defined like this purely for SECURITY REASONS
+
+
+
+#EOF (c) by UN*X 1970-$EOD (End of Days) [ EOD (c) by God ]

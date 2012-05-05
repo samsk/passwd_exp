@@ -1,40 +1,190 @@
-########
-#Makefile for passwd_exp script by Sam <behan@frida.fri.utc.sk>
+#
+# Makefile for passwd_exp script by Sam <samkob@gmail.com>
 ########
 
-#instaltaion path
+##
+# some enviroment fixes
+ifeq ($(CURDIR),)
+CURDIR	= .
+endif
+
+##
+# instaltaion path
 prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 sbindir		= @sbindir@
-sysconfdir	= @sysconfdir@
-statedir	= @sharedstatedir@
-crondir		= /etc/cron.daily
-#found binaries
+libdir		= @libdir@
+mandir		= @mandir@/man1
+datadir		= @datadir@
+datarootdir	= @datarootdir@
+sysconfdir	= @sysconfdir@/passwd_exp
+maildir		= $(sysconfdir)/mail
+crondir		= @crondir@/cron.daily
+crondir2	= @crondir@/cron.weekly
+oldpexdir	= @oldpex@
+pw_moddir	= @pw_moddir@
+prepdir		= $(CURDIR)/blib
+
+#internals
+cf_OLD_PEX	= @HAVE_OLD_PEX@
+cf_VERSION	= @VERSION@
+cf_PROGNAME	= @PROGNAME@
+cf_PERL_REQUIRE	= "@PERL_REQUIRE@"
+#set configured var
+@NOT_CONFIGURED@
+
+#__EOF__
+##
 PERL		= @PERL@
-SENDMAIL	= @SENDMAIL@
-MAILX		= @MAILX@
-SED		= @SED@
+TRANS_CONF	= confvars.map
+TRANS		= $(CURDIR)/install-trans-sh $(TRANS_CONF)
+INSTALL_FLAGS	= 
+INSTALL		= @INSTALL@ $(INSTALL_FLAGS)
+POD2MAN		= pod2man
+BUG_FILE	= BUG.REPORT
 
-#files
-binfile		= passwd_exp
-conffile	= passwd_exp.conf
-cronfile	= passwd_exp.cron
+##
+# files
+pw_script	= ${sbindir}/passwd_exp
+pw_conf		= ${sysconfdir}/passwd_exp.conf
+pw_cron		= ${datadir}/passwd_exp.cron
+pw_cron2	= ${datadir}/passwd_exp-admin.cron
+pw_mods		= mod/*
+pw_man		= passwd_exp.1
+pw_mandir	= doc/man
+FILES		= $(pw_script) $(pw_conf) $(pw_cron) $(pw_cron2)
+
+.PHONY: all compile install clean distclean mrproper dist tar-dist bug bugbug bugreport
+
+#default targ
+all: compile
+
+compile:
+	@echo COMPILING...
+	mkdir -p $(prepdir)
+	mkdir -p $(prepdir)/$(prefix)
+	mkdir -p $(prepdir)/$(exec_prefix)
+	mkdir -p $(prepdir)/$(sbindir)
+	mkdir -p $(prepdir)/$(mandir)
+	mkdir -p $(prepdir)/$(sysconfdir)
+	mkdir -p $(prepdir)/$(maildir)
+	mkdir -p $(prepdir)/$(crondir)
+	mkdir -p $(prepdir)/$(crondir2)
+	mkdir -p $(prepdir)/$(datadir)
+	mkdir -p $(prepdir)/$(pw_moddir)
+	@for file in $(FILES); \
+		do fin=`basename $$file`;	\
+		   cmd="$(TRANS) $$fin ";	\
+		   echo "$$cmd";		\
+		   $$cmd > $(prepdir)/$$file;	\
+		done;
+	@chmod a+x $(prepdir)/$(pw_script)
+	@chmod a+x $(prepdir)/$(pw_cron)
+	@chmod a+x $(prepdir)/$(pw_cron2)
+	@echo COPYING MODULES...
+	cp -f -p -r $(pw_mods) $(prepdir)/$(pw_moddir)
+	cp -f -p $(pw_mandir)/$(pw_man) $(prepdir)/$(mandir)
+	@echo DONE.
+
+install: install-perl-mod compile
+	@echo INSTALLING...
+	@echo "Creating $(sysconfdir)"
+	@$(INSTALL) -d -m u=rwx,go=rx	$(sysconfdir)
+	@if test -r "$(pw_conf)";	\
+		then echo "Installing $(pw_conf) as $(pw_conf).new";	\
+		     $(INSTALL) -m u=rw,go=r $(prepdir)/$(pw_conf)	"$(pw_conf).new";	\
+		else echo "Installing $(pw_conf)";	\
+		     $(INSTALL) -m u=rw,go=r $(prepdir)/$(pw_conf)	$(pw_conf);	\
+	fi
+	@$(INSTALL) -d -m u=rwx,go=rx	$(maildir)
+	@$(INSTALL) -d -m u=rwx,go=rx	$(pw_moddir)
+	@for file in `find "$(prepdir)/$(pw_moddir)/" ! -name "*.info" | sed -e 's:^$(prepdir)/$(pw_moddir)/::'`;	\
+			do echo "Installing module $$file";	\
+			   $(INSTALL) -m u=rwx,go=rx $(prepdir)/$(pw_moddir)/$$file $(pw_moddir)/$$file;	\
+			   if test -r $(prepdir)/$(pw_moddir)/$$file.info;	\
+				then $(INSTALL) -m u=rw,go=r $(prepdir)/$(pw_moddir)/$$file.info $(pw_moddir)/$$file.info;	\
+			   fi;	\
+	done;
+	@echo "Installing $(pw_man)"
+	@$(INSTALL) -d -m u=rwx,go=rx	$(mandir)
+	@$(INSTALL) -m u=rw,go=r $(prepdir)/$(mandir)/$(pw_man) $(mandir)/$(pw_man)
+	@if test "$(cf_OLD_PEX)"; \
+		then echo "" >&2;	\
+		     echo "------------------------------------------------" >&2;	\
+		     echo " WARNING: Found previous version of passwd_exp." >&2;	\
+		     echo " WARNING: !!! Using old config file !!!" >&2;	\
+		     echo "------------------------------------------------" >&2;	\
+		     echo "" >&2;	\
+		     echo "Using OLD passwd_exp.conf (from pre 1.x version)";	\
+		     $(INSTALL) -m u=rw,go=r $(oldpexdir)/passwd_exp.conf $(pw_conf);	\
+	fi
+	@echo "Installing $(pw_script)"
+	@$(INSTALL) -d `dirname "$(pw_script)"`
+	@$(INSTALL) -m u=rwx,go=rx $(prepdir)/$(pw_script) $(pw_script)
+	@echo "Installing $(pw_cron)"
+	@$(INSTALL) -m u=rwx,go=rx $(prepdir)/$(pw_cron) $(pw_cron)
+	@echo "Installing $(pw_cron2)"
+	@$(INSTALL) -m u=rwx,go=rx $(prepdir)/$(pw_cron2) $(pw_cron2)
+	-@if test -d "${crondir}" && test -w "${crondir}";	\
+		then	echo "Linking $(pw_cron)";		\
+			ln -s -f $(pw_cron) ${crondir};		\
+			echo "Linking $(pw_cron2)";		\
+			ln -s -f $(pw_cron2) ${crondir2};	\
+		else	echo "" >&2;	\
+			echo "---------------------------------------------------------------------------" >&2; \
+		        echo " WARNING: Failed to install cron tab scripts into CRONTAB DIRS."		 >&2; \
+		        echo "    HINT: You should add them manualy into your CRON. See README file." 	 >&2; \
+		        echo "---------------------------------------------------------------------------" >&2; \
+			echo "" >&2;	\
+	fi
+	@echo DONE.
+
+install-mod install-perl-mod:
+	@for mod in $(cf_PERL_REQUIRE); \
+		do test "$$mod" || break; \
+		   echo "Installing $$mod..."; \
+		   set -x; \
+		   $(PERL) -MCPAN -e "install '$$mod';"; \
+		   set +x; \
+	done;
+	@if test "$(cf_PERL_REQUIRE)"; \
+		then echo "All modules installed. Re-configuring package..."; \
+		     ./config.status --recheck; \
+		     echo "Done. Continuing instalation...";	\
+	fi
+
+uninstall:
+	@echo UNINSTALLING...
+	@echo "WARNING: Config file does not gets uninstalled, do it manualy !!!" 2>&1
+	rm -v -f $(pw_script) $(pw_cron) $(man_dir)/$(pw_man)
+	@echo DONE.
+
+#BUG report
+bug bugbug bugreport:
+	rm -f $(BUG_FILE)
+	@echo "CONFIG LOG:" >$(BUG_FILE)
+	cat config.log >>$(BUG_FILE)
+	@echo -e "\n\nTRANS MAP:" >>$(BUG_FILE)
+	cat confvars.map >>$(BUG_FILE)
+	@echo -e "\n\nCOMPILE LOG:" >>$(BUG_FILE)
+	$(MAKE) compile 2>&1 | tee -a $(BUG_FILE)
+	@echo -e "\n\nDONE" >>$(BUG_FILE)
 
 
-all: install
-
-install:
-	@echo "Instaling files..."
-	cp -f $(conffile) $(datadir)/$(conffile)
-	cp -f $(binfile) $(sbindir)/$(binfile)
-	@if test -e $(crondir); then cp -f $(cronfile) $(crondir)/$(cronfile); \
-        echo "cp -f $(cronfile) $(crondir)/$(cronfile)"; \
-   else echo "ERROR INSTALLING CRON FILE: see README file, section INSTALATION !!!" 1>&2; fi
-	@echo "All DONE"
-
-
+#helpers
 clean:
-	rm -f $(binfile) $(conffile) $(cronfile) Makefile
+	rm -fr $(prepdir)
 
-mrproper: clean
-	rm -f config.*
+mrproper distclean: clean
+	rm -f config.{cache,log,status,sed} Makefile confvars.map
+
+dist-tar tar-dist tardist disttar dist:
+	@echo "Creating $(cf_PROGNAME)-$(cf_VERSION).tar.gz"
+	mkdir $(cf_PROGNAME)-$(cf_VERSION)
+#	sed -e 's/^/.\//' MANIFEST | cut -f 1 | xargs cp -a -p -f --parents -v --target-directory="$(cf_PROGNAME)-$(cf_VERSION)"
+	cut -f 1 MANIFEST | cpio -m -d -p "$(cf_PROGNAME)-$(cf_VERSION)"
+	tar -cvf "$(cf_PROGNAME)-$(cf_VERSION).tar" "$(cf_PROGNAME)-$(cf_VERSION)"
+	gzip -v -9 "$(cf_PROGNAME)-$(cf_VERSION).tar"
+	rm -rf "$(cf_PROGNAME)-$(cf_VERSION)"
+
+#EOF
