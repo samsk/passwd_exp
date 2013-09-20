@@ -1,0 +1,81 @@
+##########################################
+# passwd_exp 0.5.8 and later config file #
+##########################################
+
+#system config (override)
+  locale	= auto
+  
+#mail configuration
+  direct mta	= @HAVE_SENDMAIL@
+  mailer	= "@MAILX@ %recipient% -s %subject%"
+  mta		= "@SENDMAIL@"
+  banner	= yes
+  
+#user config
+  no warning	= root
+  no check	= .nocheck
+  warn days	= 12			#override defaults
+
+#define your owen variables (you can override any symbol)
+#  variable[greeting]	= "Hello %user%"
+#  var[my_edate]	= "%e->c%"
+#  var[agent]		= "Password expiration access"
+
+#expiration
+  warn date expired	= yes
+  warning subject	= "Warning: Your account will expire soon"
+  warning body	= "
+                                                  %locale_time% %locale_date%
+
+Dear %username% (%user%@%hostname%),
+    %os% has detected that your password will expire in %expire_days% days
+    (on %expire_date%). Please change your password immediately or your
+    account will be automaticaly disabled.
+    
+    				Your's %agent%\n\n"
+  
+#expired->inactive
+  warn expired	= yes
+  expired subject	= "Warning: Your account will be disabled"
+  expired body	= "
+                                                  %locale_time% %locale_date%
+
+Dear %username% (%user%@%hostname%),
+    %os% has detected that your password has been expired %expire_days% days
+    ago and will be disabled in %inactive_days% days (on %inactive_date%)
+    Please change your password immediately !!!.
+    
+    				Your's %agent%\n\n"
+
+#####################
+# i10n - see README ##############################################
+# Please, do not modify bellow, define your own messages instead #
+##################################################################
+#slovak (help: skuste niekto upravti tieto hlasky do nejakej lepsej podoby) 
+#  var[agent][sk] = var[agent][sk_*] = "Cekovaci agent"
+  ws[sk] = ws[sk_*] = "Pozor: Platnost tvojho konta konci"
+  wb[sk] = wb[sk_*] = "
+                                                  %locale_time% %locale_date%
+
+Vazeny %username% (%user%@%hostname%),
+    %os% zistil ze platnost tvojho heslo vyprsi o %expire_days% dni (%expire_date%).
+    Prosim zmen si svoje heslo, inak bude tvoje konto automaticky 
+    zablokovane.
+    
+    				Tvoj %agent%\n\n"
+  es[sk] = es[sk_*] = "Pozor: Tvoje konto bude zablokovane"
+  eb[sk] = eb[sk_*] = "
+                                                  %locale_time% %locale_date%
+
+Vazeny %username% (%user%@%hostname%),
+    %os% zistil ze platnost tvojho hesla vyprsala dna %expire_date% 
+    a tvoje konto bude zablokovane za %inctive_days% dni (%inactive_date%).
+    Prosim zmen si svoje si svoje heslo okamzite.
+    
+    				Tvoj %agent%\n\n"
+
+#########
+#HELP ME: Please localize this config file for your language (and country) 
+#   and send me it, i'll add it to distribution. Thanx
+########
+

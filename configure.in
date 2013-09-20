@@ -1,0 +1,58 @@
+dnl -*- sh -*-
+dnl Config script for passwd_exp by Sam <behan@frida.fri.utc.sk>
+dnl
+
+#initalize
+AC_INIT()
+
+#defaults
+AC_PREFIX_DEFAULT(/)
+
+#check perl existence
+AC_PATH_PROG(PERL, perl)
+if ! test $ac_cv_path_PERL;
+   then AC_ERROR(missing perl interpreter !!!);
+fi
+
+#check for RcReader package
+if ! perl <<__EOF__ &>/dev/null
+
+use RcReader;
+
+__EOF__
+	then AC_ERROR(missing 'RcReader.pm' perl package !!!
+	See README file, section ABOUT->PERL PACKAGES...);
+fi
+
+#check for spent packager
+if ! perl <<__EOF__ &>/dev/null
+
+use spent;
+
+__EOF__
+	then AC_ERROR(missing 'spent' perl package !!!
+	See README file, section ABOUT->PERL PACKAGES...);
+fi
+
+#check for support e-mail programs
+AC_PATH_PROG(SENDMAIL, sendmail, /usr/sbin/sendmail, 
+		$PATH:/sbin:/usr/sbin:/usr/local/sbin)
+AC_PATH_PROG(MAILX, mail, /bin/mail, $PATH)
+if ! test $ac_cv_path_SENDMAIL && ! test $ac_cv_path_MAILX;
+   then sleep 1
+        AC_ERROR(no mail transport agent found !!!);
+fi
+#check for sendmail
+HAVE_SENDMAIL=1
+if ! test $ac_cv_path_SENDMAIL;
+   then HAVE_SENDMAIL=0;
+fi
+AC_SUBST(HAVE_SENDMAIL)
+
+#end
+AC_OUTPUT( passwd_exp.conf passwd_exp.cron passwd_exp Makefile)
+
+#chown files
+chmod a+x passwd_exp passwd_exp.cron
+
+

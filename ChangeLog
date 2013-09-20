@@ -1,3 +1,29 @@
+2001-03-11  Samuel Behan <behan@frida.fri.utc.sk>
+
+	* passwd_exp 0.5.9 (pre-release):
+	  - new configuration via autoconf
+	  - README file completed
+
+2001-03-11  Samuel Behan <behan@frida.fri.utc.sk>
+
+	* passwd_exp 0.5.8 (devel):
+	  - completly rewritten, new features added
+	  - using new better config file reader
+	  - patches from previous version added to code
+	  - locale support (internalization)
+	  - sendmail is used directly
+	  - i've learned regexp a bit - now using new faster
+	  	regexp expresion
+
+2001-03-11  Samuel Behan <behan@frida.fri.utc.sk>
+
+	* passwd_exp 0.5.0 (devel - complete rewrite):
+	  - this is first(?) complete rewrite of this program
+	  - there wan an idea to do this program in python, but
+	    there are several reasons why to dont do it. The 
+	    first is that perl can found even on the old VMS machines
+	    and the second is that python is too organized ;-)
+	
 2000-09-30  Samuel Behan <behan@frida.fri.utc.sk>
 
 	* passwd_exp 0.4.6
@@ -7,7 +33,7 @@
 	    such as $HOSTNAME used in default messages.
 	    CAN NOT BE FIXED - added %hostname% variable instead
 	* passwd_exp README file:
-	  - using correct syntax and grammar from english.brain
+	  - using correct syntax and grammar from brain->english
 	    dictionary ;-)
 
 2000-09-25  Samuel Behan <behan@frida.fri.utc.sk>
